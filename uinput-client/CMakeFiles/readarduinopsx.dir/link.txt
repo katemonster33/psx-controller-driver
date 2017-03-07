@@ -1,0 +1,1 @@
+/usr/bin/c++   -std=c++1y -g   CMakeFiles/readarduinopsx.dir/serial_helper.cpp.o CMakeFiles/readarduinopsx.dir/linux_uinput.cpp.o CMakeFiles/readarduinopsx.dir/main.cpp.o  -o readarduinopsx -rdynamic -lglib-2.0 -lpthread 
