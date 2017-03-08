@@ -1,7 +1,0 @@
-/home/katie/projects/ReadArduinoPSX/build/CMakeFiles/install.dir
-/home/katie/projects/ReadArduinoPSX/build/CMakeFiles/list_install_components.dir
-/home/katie/projects/ReadArduinoPSX/build/CMakeFiles/rebuild_cache.dir
-/home/katie/projects/ReadArduinoPSX/build/CMakeFiles/readarduinopsx.dir
-/home/katie/projects/ReadArduinoPSX/build/CMakeFiles/install/strip.dir
-/home/katie/projects/ReadArduinoPSX/build/CMakeFiles/install/local.dir
-/home/katie/projects/ReadArduinoPSX/build/CMakeFiles/edit_cache.dir
