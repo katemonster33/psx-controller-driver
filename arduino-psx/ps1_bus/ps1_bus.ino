@@ -13,9 +13,10 @@
 #define SET_ASCII       0x32
 #define SET_BINARY      0x33
 
-uint8_t tempBuffer[16][2];
-uint8_t tempBufferCount = 0;
-boolean printAscii = false;
+byte controllerIds[2];
+uint16_t wordBuffer[2][15];
+byte tempBufferCount = 0;
+boolean printAscii = true;
 
 void setup() 
 {
@@ -31,39 +32,40 @@ void setup()
   digitalWrite(CLOCK, HIGH);
   pinMode(ACK, INPUT_PULLUP);
   //Serial.begin(1000000);
-  tempBuffer[0][0] = 0xFF;
-  tempBuffer[0][1] = 0xFF;
+  controllerIds[0] = 0xFF;
+  controllerIds[1] = 0xFF;
   Serial.begin(115200);
 }
 
-void printMessage(int idx)
-{
-  if(tempBuffer[0] == 0xFF)
-  {
-    if(printAscii)
-    {
-      Serial.print(0xFF, HEX);
-    }
-    else
-    {
-      Serial.write(0xFF);
-    }
-  }
-  else
-  {
-    if(printAscii)
-    {
-      for(int i = 0; i < tempBufferCount; i++)
-      {
-        Serial.print(tempBuffer[i], HEX); 
-      }
-    }
-    else
-    {
-      Serial.write(tempBuffer, tempBufferCount);
-    }
-  }
-}
+//void printMessage(int idx)
+//{
+//  if(controllerIds[idx] == 0xFF)
+//  {
+//    if(printAscii)
+//    {
+//      Serial.print(0xFF, HEX);
+//    }
+//    else
+//    {
+//      Serial.write(0xFF);
+//    }
+//  }
+//  else
+//  {
+//    if(printAscii)
+//    {
+//      for(int i = 0; i < tempBufferCount; i++)
+//      {
+//        Serial.print(tempBuffer[idx][i], HEX); 
+//      }
+//    }
+//    else
+//    {
+//      int count = (tempBuffer[idx][0] & 0x0F) << 1;
+//      Serial.write(tempBuffer[idx], count + 1);
+//    }
+//  }
+//}
 
 void loop() 
 {
@@ -93,20 +95,160 @@ bool read_psx_data(int port)
   digitalWrite(playerPin, LOW);
   delayMicroseconds(CLOCK_SPEED * 2);
   byte output = 0;
-  tempBuffer[0] = 0xFF;
   tempBufferCount = 0;
-  if(!put_byte(0x01, output, false, false)) return false;
-  if(!put_byte(0x42, output, true, false)) return false;
-  uint8_t numBytes = (output & 0x0F) << 1;
-  if(!put_byte(0xFF, output, false, false)) return false;
-  for(int i = 0; i < numBytes; i++)
+  if(!put_byte(0x01, output, false)) 
   {
-    bool lastByte = i == (numBytes - 1);
-    if(!put_byte(0xFF, output, true, lastByte)) return false;
+    if(controllerIds[port] != 0xFF)
+    {
+        notify_controllerLost(port);
+    }
+    controllerIds[port] = 0xFF;
+    return false;
+  }
+  if(!put_byte(0x42, output, false)) return false;
+  byte controllerId = output;
+  uint16_t bufferNew[20];
+  controllerIds[port] = output;
+  if(!put_byte(0x5A, output, false)) return false;
+  uint16_t outputWord;
+  int numWords = controllerId & 0x0F;
+  for(int i = 0; i < numWords; i++)
+  {
+    bool lastWord = i == (numWords - 1);
+    if(!read_word(outputWord, lastWord)) return false;
+    bufferNew[tempBufferCount++] = outputWord;
+  }
+  if(controllerId != controllerIds[port])
+  {
+    notify_controllerFound(port);
+    controllerIds[port] = controllerId;
+  }
+  for(int i = 0; i < numWords; i++)
+  {
+    if(i == 0) notify_buttons(port, wordBuffer[port][0], bufferNew[0]); 
+    else notify_axes(port, i, wordBuffer[port][i], bufferNew[i]);
+    wordBuffer[port][i] = bufferNew[i];
   }
   cleanup_psx();
   //printMessage(port);
   return true;
+}
+
+#define ControllerFound 1
+#define ControllerLost 2
+#define ButtonUpdate 3
+#define AxisUpdate 4
+
+void notify_controllerLost(int idx)
+{
+  if(printAscii)
+  {
+    Serial.print("Controller ");
+    Serial.print(idx, DEC);
+    Serial.println(" lost.");
+  } 
+  else
+  {
+    Serial.write(ControllerLost);
+    Serial.write(idx);
+  }
+}
+
+void notify_controllerFound(int idx)
+{
+  if(printAscii)
+  {
+    Serial.print("Controller ");
+    Serial.print(idx, DEC);
+    Serial.println(" found.");
+  } 
+  else
+  {
+    Serial.write(ControllerFound);
+    Serial.write(idx);
+  }
+}
+
+String buttons[] = 
+{
+  "Select",
+  "R3",
+  "L3",
+  "Start",
+  "Up",
+  "Right",
+  "Down",
+  "Left",
+  "L2",
+  "R2",
+  "L1",
+  "R1",
+  "Triangle",
+  "Circle",
+  "X",
+  "Square",
+};
+
+String axes[] = 
+{
+  "Right Joy(X)",
+  "Right Joy(Y)",
+  "Left Joy(X)",
+  "Left Joy(X)"
+};
+
+uint16_t memOld, memNew;
+void notify_buttons(int idx, uint16_t dataOld, uint16_t dataNew)
+{
+  for(int i = 0; i < 16; i++)
+  {
+    memOld = dataOld & (1 << i);
+    memNew = dataNew & (1 << i);
+    if(memOld == memNew) continue;
+    if(printAscii)
+    {
+      Serial.print("Port ");
+      Serial.print(idx, DEC); 
+      if(memOld > memNew) Serial.print("released button ");
+      else Serial.print("pressed button ");
+      Serial.println(buttons[i]);
+    }
+    else
+    {
+      Serial.write(ButtonUpdate);
+      Serial.write(idx);
+      Serial.write(i);
+      Serial.write(memOld > memNew ? 1 : 0);
+    }
+  }
+}
+
+void notify_axes(int idx, int bufIndex, uint16_t dataOld, uint16_t dataNew)
+{
+  int axisIndex = (bufIndex - 1) * 2;
+  if(dataOld == dataNew) return;
+  notify_axis(idx, axisIndex, (byte)(dataOld >> 8), (byte)(dataNew >> 8));
+  notify_axis(idx, axisIndex + 1, (byte)(dataOld), (byte)(dataNew));
+}
+
+void notify_axis(int idx, int axisIndex, byte dataOld, byte dataNew)
+{
+  if(printAscii)
+  {
+    Serial.print("Port ");
+    Serial.print(idx, DEC); 
+    Serial.print("set axis ");
+    Serial.print(axes[axisIndex]);
+    Serial.print(":");
+    Serial.println(dataNew);
+  }
+  else
+  {
+    Serial.write(AxisUpdate);
+    Serial.write(idx);
+    Serial.write(axisIndex);
+    Serial.write(dataNew);
+  }
 }
 
 void cleanup_psx()
@@ -119,10 +261,19 @@ void cleanup_psx()
 
 inline bool put_byte(byte input, byte& output)
 {
-  return put_byte(input, output, true, false);
+  return put_byte(input, output, false);
 }
 
-bool put_byte(byte input, byte& output, bool writeOutput, bool lastByte)
+bool read_word(uint16_t &output, bool lastWord)
+{
+  byte by1, by2;
+  if(!put_byte(0x5A, by1, false)) return false;
+  if(!put_byte(0x5A, by2, lastWord)) return false;
+  output = by1 << 8 | by2;
+  return true;
+}
+
+bool put_byte(byte input, byte& output, bool lastByte)
 {
   output = 0;
   for(int i = 0; i < 8; i++)
@@ -144,10 +295,6 @@ bool put_byte(byte input, byte& output, bool writeOutput, bool lastByte)
       output |= (1 << i);
     }
     delayMicroseconds(CLOCK_SPEED);
-  }
-  if(writeOutput)
-  {
-    tempBuffer[tempBufferCount++] = output;
   }
   if(!lastByte)
   {
