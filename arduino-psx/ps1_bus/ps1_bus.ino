@@ -8,15 +8,30 @@
 
 #define CLOCK_SPEED 4
 
-#define RUMBLEON   0x30
-#define RUMBLEOFF  0x31
-#define SET_ASCII  0x32
-#define SET_BINARY 0x33
+#define SET_ASCII         0x31
+#define SET_BINARY        0x32
+#define START_RUMBLE_P1   0x33
+#define STOP_RUMBLE_P1    0x34
+#define START_RUMBLE_P2   0x35
+#define STOP_RUMBLE_P2    0x36
 
 byte controllerIds[2];
-uint16_t wordBuffer[2][15];
+uint16_t buttons[2];
+uint16_t axisBuffer[2][15];
+boolean enableRumble[2];
+
 byte tempBufferCount = 0;
 boolean printAscii = true;
+
+byte readMode[] = { 0x01, 0x42, 0x00, 0x00, 0x00 };
+
+byte enterConfigMode[] = { 0x01, 0x43, 0x00, 0x01, 0x00 };
+
+byte setAnalogMode[] = { 0x01, 0x44, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00 };
+
+byte enableRumbleMode[] = { 0x01, 0x4D, 0x00, 0x00, 0x01, 0xFF, 0xFF, 0xFF, 0xFF };
+
+byte exitConfigMode[] = { 0x01, 0x43, 0x00, 0x00, 0x00 };
 
 void setup() 
 {
@@ -34,10 +49,12 @@ void setup()
   //Serial.begin(1000000);
   controllerIds[0] = 0xFF;
   controllerIds[1] = 0xFF;
+  enableRumble[0] = false;
+  enableRumble[1] = false;
   Serial.begin(115200);
 }
 
-void loop() 
+void loop()
 {
   if(Serial.available() > 0)
   {
@@ -48,63 +65,68 @@ void loop()
     }
     else if(command == SET_BINARY)
     {
-      printAscii = false; 
+      printAscii = false;
+    }
+    else if(command == START_RUMBLE_P1)
+    {
+      enableRumble[0] = true;
+    }
+    else if(command == STOP_RUMBLE_P1)
+    {
+      enableRumble[0] = false;
+    }
+    else if(command == START_RUMBLE_P2)
+    {
+      enableRumble[1] = true;
+    }
+    else if(command == STOP_RUMBLE_P2)
+    {
+      enableRumble[1] = false;
     }
     Serial.flush();
   }
-  for(int i = 0; i < 2; i++)
+  for(int i = 0; i < 1; i++)
   {
-    read_psx_data(i);
+    byte oldId = controllerIds[i];
+    if(enableRumble[i])
+    {
+      Serial.println("RUMBLING");
+      readMode[3] = 0xFF;
+      readMode[4] = 0xFF;
+    }
+    else
+    {
+      readMode[3] = 0x00;      
+      readMode[4] = 0x00;
+    }
+    boolean success = send_string(i, readMode, sizeof(readMode));
+    if(success && oldId == 0xFF)
+    {
+      notify_controllerFound(i);
+      setup_controller(i);
+    }
+    else if(!success && oldId != 0xFF)
+    {
+      controllerIds[i] = 0xFF;
+      notify_controllerLost(i);
+    }
   }
-  delayMicroseconds(1500);
+  delayMicroseconds(500);
+}
+
+void setup_controller(int port)
+{
+  delayMicroseconds(150);
+  send_string(port, enterConfigMode, sizeof(enterConfigMode));
+  delayMicroseconds(150);
+  send_string(port, setAnalogMode, sizeof(setAnalogMode));
+  delayMicroseconds(150);
+  send_string(port, enableRumbleMode, sizeof(enableRumbleMode));
+  delayMicroseconds(150);
+  send_string(port, exitConfigMode, sizeof(exitConfigMode));
 }
 
 uint16_t bufferNew[20];
-bool read_psx_data(int port)
-{
-  int playerPin = (port == 0 ? PLAYER_1 : PLAYER_2);
-  digitalWrite(playerPin, LOW);
-  delayMicroseconds(CLOCK_SPEED * 2);
-  byte output = 0;
-  tempBufferCount = 0;
-  if(!put_byte(0x01, output, false)) 
-  {
-    if(controllerIds[port] != 0xFF)
-    {
-        notify_controllerLost(port);
-    }
-    controllerIds[port] = 0xFF;
-    return false;
-  }
-  if(!put_byte(0x42, output, false)) return false;
-  if(output != controllerIds[port])
-  {
-    notify_controllerFound(port);
-    controllerIds[port] = output;
-  }
-  if(!put_byte(0x5A, output, false)) return false;
-  uint16_t outputWord;
-  int numWords = controllerIds[port] & 0x0F;
-  for(int i = 0; i < numWords; i++)
-  {
-    bool lastWord = i == (numWords - 1);
-    if(!read_word(outputWord, lastWord)) 
-    {
-      notify_controllerLost(port);
-      return false;
-    }
-    bufferNew[tempBufferCount++] = outputWord;
-  }
-  for(int i = 0; i < numWords; i++)
-  {
-    if(i == 0) notify_buttons(port, wordBuffer[port][0], bufferNew[0]); 
-    else notify_axes(port, i, wordBuffer[port][i], bufferNew[i]);
-    wordBuffer[port][i] = bufferNew[i];
-  }
-  cleanup_psx();
-  //printMessage(port);
-  return true;
-}
 
 #define ControllerFound 1
 #define ControllerLost 2
@@ -141,49 +163,25 @@ void notify_controllerFound(int idx)
   }
 }
 
-String buttons[] = 
-{
-  "L2",
-  "R2",
-  "L1",
-  "R1",
-  "Triangle",
-  "Circle",
-  "X",
-  "Square",
-  "Select",
-  "R3",
-  "L3",
-  "Start",
-  "Up",
-  "Right",
-  "Down",
-  "Left",
-};
+String buttonsDesc[] = { "L2", "R2", "L1", "R1", "Triangle", "Circle", "X", "Square", "Select", "R3", "L3", "Start", "Up", "Right", "Down", "Left", };
 
-String axes[] = 
-{
-  "Right Joy(X)",
-  "Right Joy(Y)",
-  "Left Joy(X)",
-  "Left Joy(X)"
-};
+String axes[] = { "Right Joy(X)", "Right Joy(Y)", "Left Joy(X)", "Left Joy(X)", "5", "6", "7", "8", "9", "10", "11", "12" };
 
 uint16_t memOld, memNew;
-void notify_buttons(int idx, uint16_t dataOld, uint16_t dataNew)
+void notify_buttons(int idx, uint16_t dataNew)
 {
   for(int i = 0; i < 16; i++)
   {
-    memOld = dataOld & (1 << i);
+    memOld = buttons[idx] & (1 << i);
     memNew = dataNew & (1 << i);
     if(memOld == memNew) continue;
     if(printAscii)
     {
       Serial.print("Port ");
       Serial.print(idx, DEC); 
-      if(memOld > memNew) Serial.print(" released button ");
+      if(memOld < memNew) Serial.print(" released button ");
       else Serial.print(" pressed button ");
-      Serial.println(buttons[i]);
+      Serial.println(i, DEC);
     }
     else
     {
@@ -212,7 +210,7 @@ void notify_axis(int idx, int axisIndex, byte dataOld, byte dataNew)
       Serial.print("Port ");
       Serial.print(idx, DEC); 
       Serial.print(" set axis ");
-      Serial.print(axes[axisIndex]);
+      Serial.print(axisIndex);
       Serial.print(":");
       Serial.println(dataNew);
     }
@@ -234,6 +232,53 @@ void cleanup_psx()
   digitalWrite(CLOCK, HIGH);
 }
 
+boolean send_string(int port, byte string[], int len)
+{
+  digitalWrite(port == 0 ? PLAYER_1 : PLAYER_2, LOW);
+  delayMicroseconds(CLOCK_SPEED * 2);
+  byte tmp = 0;
+  int id = 0;
+  boolean isDataMode = (string[1] == 0x42 || string[1] == 0x43);
+  uint16_t buttonsTmp = 0;
+  for(int i = 0; i < len; i++)
+  {
+    bool isLastByte = (i == (len - 1));
+    if(isDataMode) isLastByte = isLastByte && id == 0x41;
+    if(!put_byte(string[i], tmp, isLastByte))
+    {
+      return false;
+    }
+    if(isDataMode)
+    {
+      if(i == 1) id = tmp;
+      else if(i == 3) buttonsTmp |= (tmp << 8);
+      else if(i == 4) buttonsTmp |= tmp;
+    }
+  }
+  if(isDataMode && id != 0 && id != 0xFF)
+  {
+    int buflen = 0;
+    int numWords = (id & 0x0F) - 1;
+    for(int i = 0; i < numWords; i++)
+    {
+      if(!read_word(bufferNew[buflen++], i == (numWords - 1))) 
+      {
+        return false;
+      }
+    }
+    controllerIds[port] = id;
+    notify_buttons(port, buttonsTmp);
+    buttons[port] = buttonsTmp;
+    for(int i = 0; i < numWords; i++)
+    {
+      notify_axes(port, i, axisBuffer[port][i], bufferNew[i]);
+      axisBuffer[port][i] = bufferNew[i];
+    }
+  }
+  cleanup_psx();
+  return true;
+}
+
 bool read_word(uint16_t &output, bool lastWord)
 {
   byte by1, by2;
@@ -251,14 +296,7 @@ bool put_byte(byte input, byte& output, bool lastByte)
   {
     cli();
     digitalWrite(CLOCK, LOW); 
-    if(input & (1 << i))
-    {
-      digitalWrite(COMMAND, HIGH);
-    }
-    else
-    {
-      digitalWrite(COMMAND, LOW);
-    }
+    digitalWrite(COMMAND, (input & (1 << i)) ? HIGH : LOW);
     SREG = old_sreg;
     delayMicroseconds(CLOCK_SPEED);
     cli();
