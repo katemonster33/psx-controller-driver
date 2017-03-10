@@ -6,12 +6,12 @@
 #define PLAYER_1 6
 #define PLAYER_2 7
 
-#define CLOCK_SPEED 2
+#define CLOCK_SPEED 4
 
 #define RUMBLEON   0x30
 #define RUMBLEOFF  0x31
-#define SET_ASCII       0x32
-#define SET_BINARY      0x33
+#define SET_ASCII  0x32
+#define SET_BINARY 0x33
 
 byte controllerIds[2];
 uint16_t wordBuffer[2][15];
@@ -37,36 +37,6 @@ void setup()
   Serial.begin(115200);
 }
 
-//void printMessage(int idx)
-//{
-//  if(controllerIds[idx] == 0xFF)
-//  {
-//    if(printAscii)
-//    {
-//      Serial.print(0xFF, HEX);
-//    }
-//    else
-//    {
-//      Serial.write(0xFF);
-//    }
-//  }
-//  else
-//  {
-//    if(printAscii)
-//    {
-//      for(int i = 0; i < tempBufferCount; i++)
-//      {
-//        Serial.print(tempBuffer[idx][i], HEX); 
-//      }
-//    }
-//    else
-//    {
-//      int count = (tempBuffer[idx][0] & 0x0F) << 1;
-//      Serial.write(tempBuffer[idx], count + 1);
-//    }
-//  }
-//}
-
 void loop() 
 {
   if(Serial.available() > 0)
@@ -86,9 +56,10 @@ void loop()
   {
     read_psx_data(i);
   }
-  delayMicroseconds(200);
+  delayMicroseconds(1500);
 }
 
+uint16_t bufferNew[20];
 bool read_psx_data(int port)
 {
   int playerPin = (port == 0 ? PLAYER_1 : PLAYER_2);
@@ -106,22 +77,23 @@ bool read_psx_data(int port)
     return false;
   }
   if(!put_byte(0x42, output, false)) return false;
-  byte controllerId = output;
-  uint16_t bufferNew[20];
-  controllerIds[port] = output;
+  if(output != controllerIds[port])
+  {
+    notify_controllerFound(port);
+    controllerIds[port] = output;
+  }
   if(!put_byte(0x5A, output, false)) return false;
   uint16_t outputWord;
-  int numWords = controllerId & 0x0F;
+  int numWords = controllerIds[port] & 0x0F;
   for(int i = 0; i < numWords; i++)
   {
     bool lastWord = i == (numWords - 1);
-    if(!read_word(outputWord, lastWord)) return false;
+    if(!read_word(outputWord, lastWord)) 
+    {
+      notify_controllerLost(port);
+      return false;
+    }
     bufferNew[tempBufferCount++] = outputWord;
-  }
-  if(controllerId != controllerIds[port])
-  {
-    notify_controllerFound(port);
-    controllerIds[port] = controllerId;
   }
   for(int i = 0; i < numWords; i++)
   {
@@ -171,14 +143,6 @@ void notify_controllerFound(int idx)
 
 String buttons[] = 
 {
-  "Select",
-  "R3",
-  "L3",
-  "Start",
-  "Up",
-  "Right",
-  "Down",
-  "Left",
   "L2",
   "R2",
   "L1",
@@ -187,6 +151,14 @@ String buttons[] =
   "Circle",
   "X",
   "Square",
+  "Select",
+  "R3",
+  "L3",
+  "Start",
+  "Up",
+  "Right",
+  "Down",
+  "Left",
 };
 
 String axes[] = 
@@ -209,8 +181,8 @@ void notify_buttons(int idx, uint16_t dataOld, uint16_t dataNew)
     {
       Serial.print("Port ");
       Serial.print(idx, DEC); 
-      if(memOld > memNew) Serial.print("released button ");
-      else Serial.print("pressed button ");
+      if(memOld > memNew) Serial.print(" released button ");
+      else Serial.print(" pressed button ");
       Serial.println(buttons[i]);
     }
     else
@@ -233,21 +205,24 @@ void notify_axes(int idx, int bufIndex, uint16_t dataOld, uint16_t dataNew)
 
 void notify_axis(int idx, int axisIndex, byte dataOld, byte dataNew)
 {
-  if(printAscii)
+  if(dataOld != dataNew)
   {
-    Serial.print("Port ");
-    Serial.print(idx, DEC); 
-    Serial.print("set axis ");
-    Serial.print(axes[axisIndex]);
-    Serial.print(":");
-    Serial.println(dataNew);
-  }
-  else
-  {
-    Serial.write(AxisUpdate);
-    Serial.write(idx);
-    Serial.write(axisIndex);
-    Serial.write(dataNew);
+    if(printAscii)
+    {
+      Serial.print("Port ");
+      Serial.print(idx, DEC); 
+      Serial.print(" set axis ");
+      Serial.print(axes[axisIndex]);
+      Serial.print(":");
+      Serial.println(dataNew);
+    }
+    else
+    {
+      Serial.write(AxisUpdate);
+      Serial.write(idx);
+      Serial.write(axisIndex);
+      Serial.write(dataNew);
+    }
   }
 }
 
@@ -257,11 +232,6 @@ void cleanup_psx()
   digitalWrite(PLAYER_2, HIGH);
   digitalWrite(COMMAND, HIGH);
   digitalWrite(CLOCK, HIGH);
-}
-
-inline bool put_byte(byte input, byte& output)
-{
-  return put_byte(input, output, false);
 }
 
 bool read_word(uint16_t &output, bool lastWord)
@@ -276,8 +246,10 @@ bool read_word(uint16_t &output, bool lastWord)
 bool put_byte(byte input, byte& output, bool lastByte)
 {
   output = 0;
+  uint8_t old_sreg = SREG;        // *** KJE *** save away the current state of interrupts
   for(int i = 0; i < 8; i++)
   {
+    cli();
     digitalWrite(CLOCK, LOW); 
     if(input & (1 << i))
     {
@@ -287,13 +259,16 @@ bool put_byte(byte input, byte& output, bool lastByte)
     {
       digitalWrite(COMMAND, LOW);
     }
+    SREG = old_sreg;
     delayMicroseconds(CLOCK_SPEED);
+    cli();
     digitalWrite(CLOCK, HIGH);
     int by = digitalRead(DATA);
     if(by == HIGH)
     {
       output |= (1 << i);
     }
+    SREG = old_sreg;
     delayMicroseconds(CLOCK_SPEED);
   }
   if(!lastByte)
@@ -309,7 +284,7 @@ bool wait_ack()
   {
     if(digitalRead(ACK) == LOW)
     {
-      delayMicroseconds(CLOCK_SPEED);
+      delayMicroseconds(CLOCK_SPEED * 2);
       return true;
     }
     delayMicroseconds(1);
