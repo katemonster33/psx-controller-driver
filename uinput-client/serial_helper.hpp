@@ -5,8 +5,8 @@ static const short psx_axes[] = {
 	ABS_HAT0X, ABS_HAT0Y, ABS_RX, ABS_RY, ABS_X, ABS_Y
 };
 static const short psx_btn[] = {
-	BTN_SELECT, BTN_THUMBR, BTN_THUMBL, BTN_START, 0, 0, 0, 0,
 	BTN_TL2, BTN_TR2, BTN_TL, BTN_TR, BTN_X, BTN_A, BTN_B, BTN_Y,
+	BTN_SELECT, BTN_THUMBR, BTN_THUMBL, BTN_START, 0, 0, 0, 0,
 };
 
 enum class PsxType
@@ -16,6 +16,12 @@ enum class PsxType
   Normal = 4,
   Analog = 5,
   AnalogRumble = 7
+};
+
+enum class PsxCommand
+{
+  Button = 0x01,
+  Axis,
 };
 
 class SerialHelper

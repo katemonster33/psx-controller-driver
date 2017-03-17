@@ -26,11 +26,12 @@ typedef struct Controller
   byte Index;
   byte Pin;
   uint16_t Buttons;
+  byte PsxBuffer[50];
   byte RumbleActive;
 };
 Controller controllers[NUM_CONTROLLERS];
 
-boolean loggingActive = true, msgLoggingActive = false;
+boolean loggingActive = false, msgLoggingActive = false;
 
 byte readMode[] = { 0x01, 0x42, 0x00, 0x00, 0x00 };
 byte setAnalogMode[] = { 0x01, 0x44, 0x00, 0x01, 0x03, 0x00, 0x00, 0x00, 0x00 };
@@ -107,7 +108,7 @@ void loop()
       notify_controllerLost(port);
     }
   }
-  delayMicroseconds(3000);
+  delay(1);
 }
 
 void setup_controller(struct Controller *port)
@@ -147,7 +148,7 @@ void setup_controller(struct Controller *port)
 
 bool send_string_retry(Controller *port, byte string[], int stringLen)
 {
-  for(int i = 0; i < 3; i++)
+  for(int i = 0; i < 6; i++)
   {
     if(send_string(port, string, stringLen) == true)
     {
@@ -238,7 +239,6 @@ void cleanup_psx()
 boolean send_string(struct Controller *port, byte string[], int stringLen)
 {
   int newLen = stringLen;
-  byte dataBuffer[30];
   int numWords = 0, tmpLen = 0;
   byte mode = string[1];
   digitalWrite(port->Pin, LOW);
@@ -246,8 +246,8 @@ boolean send_string(struct Controller *port, byte string[], int stringLen)
   for(; tmpLen < newLen; tmpLen++)
   {
     byte cmd = (tmpLen < stringLen ? string[tmpLen] : 0x5A);
-    dataBuffer[tmpLen] = put_byte(cmd);
-    if(tmpLen == 1) newLen = ((dataBuffer[tmpLen] & 0x0F) << 1) + 3;
+    port->PsxBuffer[tmpLen] = put_byte(cmd);
+    if(tmpLen == 1) newLen = ((port->PsxBuffer[tmpLen] & 0x0F) << 1) + 3;
     
     if(tmpLen != (newLen - 1) && !wait_ack())
     {
@@ -257,22 +257,22 @@ boolean send_string(struct Controller *port, byte string[], int stringLen)
     }
   }
   boolean foundController = false;
-  if(mode == 0x42)
+  if((mode == 0x42 || mode == 0x43) && port->PsxBuffer[1] != 0xF3) //read mode when not in config mode
   {
-    byte newId = dataBuffer[1] >> 4;
+    byte newId = port->PsxBuffer[1] >> 4;
     foundController = (newId != port->ID && port->ID == 0x0F);
     port->ID = newId;
     if(foundController)
     {
       notify_controllerFound(port);
     }
-    uint16_t buttonsTmp = (dataBuffer[3] << 8) | dataBuffer[4];
+    uint16_t buttonsTmp = (port->PsxBuffer[3] << 8) | port->PsxBuffer[4];
     notify_buttons(port, buttonsTmp);
     port->Buttons = buttonsTmp;
     
     for(int axisIndex = 5; axisIndex < newLen; axisIndex++)
     {
-      notify_axis(port, axisIndex - 5, dataBuffer[axisIndex]);
+      notify_axis(port, axisIndex - 5, port->PsxBuffer[axisIndex]);
     }
   }
   cleanup_psx();
@@ -283,7 +283,7 @@ boolean send_string(struct Controller *port, byte string[], int stringLen)
     {
       Serial.print(string[i], HEX);
       Serial.print("/");
-      Serial.print(dataBuffer[i], HEX);
+      Serial.print(port->PsxBuffer[i], HEX);
       Serial.print(" ");
     }
     Serial.println();
@@ -298,13 +298,13 @@ boolean send_string(struct Controller *port, byte string[], int stringLen)
 byte put_byte(byte input)
 {
   byte output = 0;
-  uint8_t old_sreg = SREG;        // *** KJE *** save away the current state of interrupts
+  uint8_t old_sreg = SREG;        // save away the current state of interrupts
   for(int i = 0; i < 8; i++)
   {
-    cli();
+    cli(); // disable interrupts
     digitalWrite(CLOCK, LOW); 
     digitalWrite(COMMAND, (input & (1 << i)) ? HIGH : LOW);
-    SREG = old_sreg;
+    SREG = old_sreg; // enable interrupts
     delayMicroseconds(CLOCK_SPEED);
     cli();
     digitalWrite(CLOCK, HIGH);
