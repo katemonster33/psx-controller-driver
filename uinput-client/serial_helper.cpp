@@ -173,29 +173,18 @@ void SerialHelper::parseMessage(LinuxUinput *input, unsigned char *buffer, size_
   input->sync();
 }
 
-bool isPacketValid(unsigned char *buf)
+int tryReadPacket(unsigned char *ptr)
 {
-  int padCount = 0;
-  for(int i = 0; i < 30;)
+  switch(*ptr)
   {
-    if(buf[i] == 0) return false;
-    if(buf[i] == 0xAA)
-    {
-      break;
-    }
-    else if(buf[i] == 0xFF)
-    {
-      padCount++;
-      i++;
-    }
-    else
-    {
-      int bufCount = (buf[i] & 0x0F) << 1;
-      i += bufCount + 1;
-      padCount++;
-    }
+    case 0x01:
+      
+      return 3;
+    default:
+      return 1;
+    case 0x02:
+      return 4;
   }
-  return padCount == 2;
 }
 
 int SerialHelper::ReadControllerInputThread()
@@ -212,53 +201,85 @@ int SerialHelper::ReadControllerInputThread()
       USB = serialport_init("/dev/ttyUSB2", B115200);
       if(USB < 0)
       {
-	cout << "Error " << errno << " opening /dev/ttyUSB1: " << strerror (errno) << endl;
+	cout << "Error " << errno << " opening tty: " << strerror (errno) << endl;
 	return 1;
       }
     }
   }
   sleep(2);
-  unsigned char buf [30];
+  const int bufSize = 255;
+  unsigned char buf [bufSize];
   struct timespec sleepTime;
   sleepTime.tv_sec = 0;
-  sleepTime.tv_nsec = 10000000;
+  sleepTime.tv_nsec = 15000000;
   
   while(!stopThread)
   {
     unsigned char outByte = 0x01;
-    int n = write (USB, &outByte, 1);
-    if(n != 1)
+    memset(buf, 0, bufSize);
+    int rc = read(USB, buf, bufSize);
+    if(rc == -1)
     {
-      cout << "No write.";
-      close(USB);
-      return 0;
+      cout << "Got read error." << std::endl;
     }
-    memset(buf, 0, 30);
-    int rc = serialport_read_until(USB, buf, 0xAA, 30, 15);
-    if(rc != 0 || buf[0] == 0 || !isPacketValid(buf))
+    else
     {
-      cout << "read fail." << std::endl;
-      continue;
-    }
-    unsigned char *ptr = buf;
-    for(int player = 0; player < 2; player++)
-    {
-      if(*ptr == 0xFF)
+      unsigned char *ptr = buf, *lastptr = buf + rc;
+      while(ptr < lastptr)
       {
-	if(players[player]) 
+	unsigned char mode = *(ptr++);
+	switch(mode)
 	{
-	  delete players[player];
-	  players[player] = nullptr;
-	  cout << "Lost PSX controller on slot " << (player + 1) << endl;
+	  case 0x01: // found controller 
+	  case 0x02: // lost controller 
+	  {
+	    int player = *(ptr++);
+	    if(mode == 0x01)
+	    {
+	      getPlayerById(player);
+	    }
+	    else
+	    {
+	      delete players[player];
+	      players[player] = nullptr;
+	      cout << "Lost PSX controller on slot " << (player + 1) << endl;
+	    }
+	  }
+	  break;
+	  case 0x03: // button
+	  {
+	    int player = *(ptr++);
+	    int button = *(ptr++);
+	    int val = *(ptr++);
+	    if(button == 15 || button == 13)
+	    {
+	      if(val != 0) val = (button == 15 ? -1 : 1);
+	      getPlayerById(player)->send(EV_ABS, ABS_HAT0X, val);
+	    }
+	    else if(button == 14 || button == 12)
+	    {
+	      if(val != 0) val = (button == 14 ? -1 : 1);
+	      getPlayerById(player)->send(EV_ABS, ABS_HAT0Y, val);
+	    }
+	    else
+	    {
+	      getPlayerById(player)->send(EV_KEY, psx_btn[button], val);
+	    }
+	    getPlayerById(player)->sync();
+	  }
+	  break;
+	  case 0x04: // axis
+	  {
+	    int player = *(ptr++);
+	    int axis = *(ptr++);
+	    int val = *(ptr++);
+	    getPlayerById(player)->send(EV_ABS, psx_axes[axis + 2], val);
+	    getPlayerById(player)->sync();
+	  }
+	  break;
+	  default:
+	    break;
 	}
-	ptr++;
-      }
-      else
-      {
-	int count = (*ptr & 0x0F) << 1;
-	LinuxUinput *struc = getPlayerById(player);
-	parseMessage(struc, buf, count);
-	ptr += count + 1;
       }
     }
     nanosleep(&sleepTime, nullptr);
