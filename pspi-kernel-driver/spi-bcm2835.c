@@ -868,6 +868,8 @@ static int bcm2835_spi_remove(struct platform_device *pdev)
 	bcm2835_wr(bs, BCM2835_SPI_CS,
 		   BCM2835_SPI_CS_CLEAR_RX | BCM2835_SPI_CS_CLEAR_TX);
 
+        gpio_free(PIN_ACK);
+
 	clk_disable_unprepare(bs->clk);
 
 	return 0;
