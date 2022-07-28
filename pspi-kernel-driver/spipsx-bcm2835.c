@@ -74,7 +74,7 @@
 #define BCM2835_SPI_MODE_BITS	(SPI_CPOL | SPI_CPHA | SPI_CS_HIGH \
 				| SPI_NO_CS | SPI_3WIRE)
 
-#define DRV_NAME	"spi-bcm2835"
+#define DRV_NAME	"spipsx-bcm2835"
 
 /* define polling limits */
 static unsigned int polling_limit_us = 30;
@@ -136,13 +136,8 @@ struct bcm2835_spi {
 	u64 count_transfer_polling;
 	u64 count_transfer_irq;
 	u64 count_transfer_irq_after_polling;
-	u64 count_transfer_dma;
 
 	struct bcm2835_spidev *slv;
-	unsigned int tx_dma_active;
-	unsigned int rx_dma_active;
-	struct dma_async_tx_descriptor *fill_tx_desc;
-	dma_addr_t fill_tx_addr;
 	int gpioIrq;
 };
 
@@ -184,8 +179,6 @@ static void bcm2835_debugfs_create(struct bcm2835_spi *bs,
 			   &bs->count_transfer_irq);
 	debugfs_create_u64("count_transfer_irq_after_polling", 0444, dir,
 			   &bs->count_transfer_irq_after_polling);
-	debugfs_create_u64("count_transfer_dma", 0444, dir,
-			   &bs->count_transfer_dma);
 }
 
 static void bcm2835_debugfs_remove(struct bcm2835_spi *bs)
@@ -581,13 +574,6 @@ static void bcm2835_spi_handle_err(struct spi_controller *ctlr,
 {
 	struct bcm2835_spi *bs = spi_controller_get_devdata(ctlr);
 
-	/* if an error occurred and we have an active dma, then terminate */
-	dmaengine_terminate_sync(ctlr->dma_tx);
-	bs->tx_dma_active = false;
-	dmaengine_terminate_sync(ctlr->dma_rx);
-	bs->rx_dma_active = false;
-	bcm2835_spi_undo_prologue(bs);
-
 	/* and reset */
 	bcm2835_spi_reset_hw(bs);
 }
@@ -801,53 +787,47 @@ static int bcm2835_spi_probe(struct platform_device *pdev)
 	clk_prepare_enable(bs->clk);
 	bs->clk_hz = clk_get_rate(bs->clk);
 
-	err = bcm2835_dma_init(ctlr, &pdev->dev, bs);
-	if (err)
-		goto out_clk_disable;
-
 	/* initialise the hardware with the default polarities */
 	bcm2835_wr(bs, BCM2835_SPI_CS,
 		   BCM2835_SPI_CS_CLEAR_RX | BCM2835_SPI_CS_CLEAR_TX);
 
-	err = gpio_request(PIN_ACK, "GPIO_25_IN");
+	err = gpio_request(ACK_PIN, "GPIO_25_IN");
 
 	if (err) {
-		dev_err(&pdev->dev, "GPIO %d could not be requested\n", PIN_ACK);
-		goto pin_ack_release;
+		dev_err(&pdev->dev, "GPIO %d could not be requested\n", ACK_PIN);
+		goto out_clk_disable;
 	}
 
-	gpio_direction_input(PIN_ACK);
+	gpio_direction_input(ACK_PIN);
 
-	bs->gpioIrq = gpio_to_irq(PIN_ACK);
+	bs->gpioIrq = gpio_to_irq(ACK_PIN);
 
 	err = request_irq(bs->gpioIrq, (void*)pin_ack_irq_handler, IRQF_TRIGGER_RISING, dev_name(&pdev->dev), NULL);
 	if(err) {
 		dev_err(&pdev->dev, "Could not request IRQ %d\n", bs->gpioIrq);
 		goto pin_ack_release;
-	},
+	}
 
 	err = devm_request_irq(&pdev->dev, bs->irq, bcm2835_spi_interrupt, 0,
 			       dev_name(&pdev->dev), bs);
 	if (err) {
 		dev_err(&pdev->dev, "could not request IRQ: %d\n", err);
-		goto out_dma_release;
+		goto pin_ack_release;
 	}
 
 	err = spi_register_controller(ctlr);
 	if (err) {
 		dev_err(&pdev->dev, "could not register SPI controller: %d\n",
 			err);
-		goto out_dma_release;
+		goto pin_ack_release;
 	}
 
 	bcm2835_debugfs_create(bs, dev_name(&pdev->dev));
 
 	return 0;
 
-out_dma_release:
-	bcm2835_dma_release(ctlr, bs);
 pin_ack_release:
-	gpio_free(PIN_ACK);
+	gpio_free(ACK_PIN);
 out_clk_disable:
 	clk_disable_unprepare(bs->clk);
 	return err;
@@ -862,13 +842,11 @@ static int bcm2835_spi_remove(struct platform_device *pdev)
 
 	spi_unregister_controller(ctlr);
 
-	bcm2835_dma_release(ctlr, bs);
-
 	/* Clear FIFOs, and disable the HW block */
 	bcm2835_wr(bs, BCM2835_SPI_CS,
 		   BCM2835_SPI_CS_CLEAR_RX | BCM2835_SPI_CS_CLEAR_TX);
 
-        gpio_free(PIN_ACK);
+        gpio_free(ACK_PIN);
 
 	clk_disable_unprepare(bs->clk);
 
