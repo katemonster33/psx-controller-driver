@@ -1,7 +1,11 @@
-#define DATA 2
-#define COMMAND 3
+#include <SPI.h>
+
+const byte INTER_CMD_BYTE_DELAY = 15;
+
+#define DATA 12
+#define COMMAND 11
 #define ACK 4
-#define CLOCK 5
+#define CLOCK 13
 #define PLAYER_1 6
 #define PLAYER_2 7
 
@@ -31,7 +35,7 @@ typedef struct Controller
 };
 Controller controllers[NUM_CONTROLLERS];
 
-boolean loggingActive = false, msgLoggingActive = false;
+boolean loggingActive = true, msgLoggingActive = true;
 
 byte readMode[] = { 0x01, 0x42, 0x00, 0x00, 0x00 };
 byte setAnalogMode[] = { 0x01, 0x44, 0x00, 0x01, 0x03, 0x00, 0x00, 0x00, 0x00 };
@@ -41,7 +45,9 @@ byte exitConfigMode[] = { 0x01, 0x43, 0x00, 0x00, 0x00, 0x5A, 0x5A, 0x5A, 0x5A }
 
 void setup()
 {
+  SPI.begin();
   // put your setup code here, to run once:
+  pinMode(10, OUTPUT);
   pinMode(COMMAND, OUTPUT);
   pinMode(DATA, INPUT_PULLUP);
   pinMode(CLOCK, OUTPUT);
@@ -59,6 +65,7 @@ void setup()
   }
   cleanup_psx();
   Serial.begin(115200);
+  Serial.println("Started, looking for controller...");
 }
 
 void loop()
@@ -228,8 +235,11 @@ void notify_axis(struct Controller *port, int axisIndex, byte data)
 
 void cleanup_psx()
 {
+  Serial.println("cleanup_psx");
+  SPI.endTransaction();
   digitalWrite(COMMAND, HIGH);
   digitalWrite(CLOCK, HIGH);
+  digitalWrite(10, HIGH);
   for(int i = 0; i < NUM_CONTROLLERS; i++)
   {
     digitalWrite(controllers[i].Pin, HIGH);
@@ -242,6 +252,8 @@ boolean send_string(struct Controller *port, byte string[], int stringLen)
   int numWords = 0, tmpLen = 0;
   byte mode = string[1];
   digitalWrite(port->Pin, LOW);
+  digitalWrite(10, LOW);
+  SPI.beginTransaction(SPISettings(250000, LSBFIRST, SPI_MODE3)); 
   delayMicroseconds(CLOCK_SPEED * 3);
   for(; tmpLen < newLen; tmpLen++)
   {
@@ -252,10 +264,11 @@ boolean send_string(struct Controller *port, byte string[], int stringLen)
     if(tmpLen != (newLen - 1) && !wait_ack())
     {
       cleanup_psx();
-      delayMicroseconds(25);
+      delayMicroseconds(100);
       return false;
     }
   }
+  
   boolean foundController = false;
   if((mode == 0x42 || mode == 0x43) && port->PsxBuffer[1] != 0xF3) //read mode when not in config mode
   {
@@ -297,40 +310,11 @@ boolean send_string(struct Controller *port, byte string[], int stringLen)
 
 byte put_byte(byte input)
 {
-  byte output = 0;
-  uint8_t old_sreg = SREG;        // save away the current state of interrupts
-  for(int i = 0; i < 8; i++)
-  {
-    cli(); // disable interrupts
-    digitalWrite(CLOCK, LOW); 
-    digitalWrite(COMMAND, (input & (1 << i)) ? HIGH : LOW);
-    SREG = old_sreg; // enable interrupts
-    delayMicroseconds(CLOCK_SPEED);
-    cli();
-    digitalWrite(CLOCK, HIGH);
-    int by = digitalRead(DATA);
-    if(by == HIGH)
-    {
-      output |= (1 << i);
-    }
-    SREG = old_sreg;
-    delayMicroseconds(CLOCK_SPEED);
-  }
-  return output;
+  return SPI.transfer(input);
 }
 
 bool wait_ack()
 {
-  for(int i = 0; i < 75; i++)
-  {
-    if(digitalRead(ACK) == LOW)
-    {
-      delayMicroseconds(CLOCK_SPEED * 2);
-      return true;
-    }
-    delayMicroseconds(1);
-  }
-  return false;
+  delayMicroseconds(INTER_CMD_BYTE_DELAY);
+  return true;
 }
-
-
