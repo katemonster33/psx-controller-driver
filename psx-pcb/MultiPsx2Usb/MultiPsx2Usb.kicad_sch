@@ -7637,10 +7637,9 @@
 		(on_board yes)
 		(in_pos_files yes)
 		(dnp no)
-		(fields_autoplaced yes)
 		(uuid "ef6efa79-1bae-4399-b09e-17d77ddb8b65")
 		(property "Reference" "NCV1"
-			(at 135.89 116.84 0)
+			(at 137.414 117.856 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
