@@ -41,6 +41,11 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
+#include <inttypes.h>
+
+#define USB_BUSNAK0_bm 0x02 // EP[0].OUT.STATUS / BUSNACK
+
+#define USB_TRNCOMPL0_bm 0x20 // EP[0].OUT.STATUS / TRNCOMPL
 
 /* ------------------------------------------------------------------ */
 /*  Pin definitions                                                    */
@@ -326,22 +331,9 @@ static void poll_controllers(void)
 
 /* ---- Buffer-descriptor table -------------------------------------- */
 
-typedef struct {
-    uint16_t CNT;       /* byte count / configuration */
-    uint8_t *DATAPTR;
-    uint8_t  STATUS;
-    uint8_t  CTRL;
-    uint16_t reserved;
-} usb_ep_desc_t;
-
-typedef struct {
-    usb_ep_desc_t OUT;
-    usb_ep_desc_t IN;
-} usb_ep_pair_t;
-
 #define USB_NUM_ENDPOINTS   2   /* EP0 + EP1 */
 
-static volatile usb_ep_pair_t usb_endpoints[USB_NUM_ENDPOINTS]
+static volatile USB_EP_PAIR_t usb_endpoints[USB_NUM_ENDPOINTS]
         __attribute__((aligned(2)));
 
 /* Endpoint FIFO buffers */
@@ -355,6 +347,8 @@ typedef struct __attribute__((packed)) {
     uint8_t  lx, ly, rx, ry;
     uint16_t buttons;       /* active-high: 1 = pressed */
 } hid_gamepad_report_t;
+
+
 
 static hid_gamepad_report_t ep1_in_buf;
 
@@ -520,8 +514,10 @@ static void usb_clock_init(void)
     /* Feed the USB peripheral from the auto-tuned internal OSCHF.  The
      * peripheral derives its 48 MHz timing from this and is calibrated
      * by USB SOF reception once enumerated. */
-    ccp_write_io((void *)&CLKCTRL.USBCTRLA,
-                 CLKCTRL_USBSEL_OSCHF_gc | CLKCTRL_USBEN_bm);
+    //ccp_write_io((void *)&CLKCTRL.USBCTRLA,
+    //             CLKCTRL_ | CLKCTRL_USBEN_bm);
+    
+    // doesn't appear to be necessary???
 }
 
 static void usb_load_ep0_in_chunk(void)
@@ -535,7 +531,7 @@ static void usb_load_ep0_in_chunk(void)
     ep0_in_src += n;
     ep0_in_len -= n;
 
-    usb_endpoints[0].IN.DATAPTR = ep0_in_buf;
+    usb_endpoints[0].IN.DATAPTR = (uint16_t)ep0_in_buf;
     usb_endpoints[0].IN.CNT     = n;
     usb_endpoints[0].IN.STATUS &= ~(USB_BUSNAK0_bm | USB_TRNCOMPL0_bm);
 }
@@ -553,7 +549,7 @@ static void usb_ep0_send_zlp(void)
     ep0_in_src     = NULL;
     ep0_in_len     = 0;
     ep0_in_progmem = 0;
-    usb_endpoints[0].IN.DATAPTR = ep0_in_buf;
+    usb_endpoints[0].IN.DATAPTR = (uint16_t)ep0_in_buf;
     usb_endpoints[0].IN.CNT     = 0;
     usb_endpoints[0].IN.STATUS &= ~(USB_BUSNAK0_bm | USB_TRNCOMPL0_bm);
 }
@@ -572,19 +568,19 @@ static void usb_endpoints_configure(void)
 
     /* EP0 OUT: 64-byte control */
     usb_endpoints[0].OUT.CTRL    = USB_TYPE_CONTROL_gc | USB_BUFSIZE_DEFAULT_BUF64_gc;
-    usb_endpoints[0].OUT.DATAPTR = ep0_out_buf;
+    usb_endpoints[0].OUT.DATAPTR = (uint16_t)ep0_out_buf;
     usb_endpoints[0].OUT.CNT     = 0;
     usb_endpoints[0].OUT.STATUS  = 0;
 
     /* EP0 IN: 64-byte control, start out NAKing until we have data. */
     usb_endpoints[0].IN.CTRL     = USB_TYPE_CONTROL_gc | USB_BUFSIZE_DEFAULT_BUF64_gc;
-    usb_endpoints[0].IN.DATAPTR  = ep0_in_buf;
+    usb_endpoints[0].IN.DATAPTR  = (uint16_t)ep0_in_buf;
     usb_endpoints[0].IN.CNT      = 0;
     usb_endpoints[0].IN.STATUS   = USB_BUSNAK0_bm;
 
     /* EP1 IN: interrupt endpoint, HID report sized */
     usb_endpoints[1].IN.CTRL     = USB_TYPE_BULKINT_gc | USB_BUFSIZE_DEFAULT_BUF64_gc;
-    usb_endpoints[1].IN.DATAPTR  = (uint8_t *)&ep1_in_buf;
+    usb_endpoints[1].IN.DATAPTR  = (uint16_t)&ep1_in_buf;
     usb_endpoints[1].IN.CNT      = 0;
     usb_endpoints[1].IN.STATUS   = USB_BUSNAK0_bm;
     ep1_in_busy = 0;
@@ -600,8 +596,8 @@ static void usb_init(void)
     usb_endpoints_configure();
 
     /* Attach as Full-Speed device. */
-    USB0.CTRLB = USB_ATTACH_bm;
     USB0.CTRLA = USB_ENABLE_bm | (uint8_t)(USB_NUM_ENDPOINTS - 1); /* MAXEP */
+    USB0.CTRLB = USB_ATTACH_bm;
 }
 
 /* ---- Standard request handling ----------------------------------- */
@@ -786,9 +782,9 @@ static void hid_publish_reports(void)
 
         port->report_dirty = 0;
 
-        usb_endpoints[1].IN.DATAPTR = (uint8_t *)&ep1_in_buf;
+        usb_endpoints[1].IN.DATAPTR = (uint16_t)&ep1_in_buf;
         usb_endpoints[1].IN.CNT     = HID_IN_REPORT_SIZE;
-        usb_endpoints[1].IN.STATUS &= ~(USB_BUS | USB_TRNCOMPL0_bm);
+        usb_endpoints[1].IN.STATUS &= ~(USB_BUSNAK_bm | USB_TRNCOMPL0_bm);
         ep1_in_busy = 1;
         return;     /* one report per call - next call drains the other */
     }
