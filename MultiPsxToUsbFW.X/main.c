@@ -147,8 +147,6 @@ static void clock_init(void)
 
 static void pins_init(void)
 {
-    PORTMUX.SPIROUTEA = PORTMUX_SPI0_ALT4_gc;
-    
     /* MOSI, SCK, SS outputs; idle high (PSX bus idles high). */
     SPI_PORT.DIRSET = SPI_MOSI_bm | SPI_SCK_bm | SPI_SS_bm;
     SPI_PORT.OUTSET = SPI_MOSI_bm | SPI_SCK_bm | SPI_SS_bm;
@@ -173,7 +171,7 @@ static void pins_init(void)
 static void spi_init(void)
 {
     /* Default PORTMUX (SPI0 on PA4..PA7) - explicit assignment for clarity. */
-    PORTMUX.SPIROUTEA = PORTMUX_SPI0_DEFAULT_gc;
+    PORTMUX.SPIROUTEA = PORTMUX_SPI0_ALT4_gc;
 
     /*
      * PSX bus requires:
