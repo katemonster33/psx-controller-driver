@@ -36,6 +36,7 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <avr/pgmspace.h>
+#include <avr/cpufunc.h>
 #include <util/delay.h>
 #include <stdint.h>
 #include <stdbool.h>
@@ -135,7 +136,7 @@ static void clock_init(void)
      * USB-SOF auto-tune option enabled so the oscillator is calibrated by
      * USB host frame timing while the device is enumerated. */
     ccp_write_io((void *)&CLKCTRL.OSCHFCTRLA,
-                 CLKCTRL_FRQSEL_24M_gc | CLKCTRL_AUTOTUNE_bm);
+                 CLKCTRL_FRQSEL_16M_gc | CLKCTRL_AUTOTUNE_SOF_gc);
     ccp_write_io((void *)&CLKCTRL.MCLKCTRLA, CLKCTRL_CLKSEL_OSCHF_gc);
     ccp_write_io((void *)&CLKCTRL.MCLKCTRLB, 0); /* No prescaler -> 24 MHz */
 }
@@ -146,6 +147,8 @@ static void clock_init(void)
 
 static void pins_init(void)
 {
+    PORTMUX.SPIROUTEA = PORTMUX_SPI0_ALT4_gc;
+    
     /* MOSI, SCK, SS outputs; idle high (PSX bus idles high). */
     SPI_PORT.DIRSET = SPI_MOSI_bm | SPI_SCK_bm | SPI_SS_bm;
     SPI_PORT.OUTSET = SPI_MOSI_bm | SPI_SCK_bm | SPI_SS_bm;
