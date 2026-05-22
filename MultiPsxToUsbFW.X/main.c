@@ -47,15 +47,15 @@
 /* ------------------------------------------------------------------ */
 
 /* SPI0 (default PORTMUX) */
-#define SPI_PORT        PORTA
+#define SPI_PORT        PORTD
 #define SPI_MOSI_bm     PIN4_bm
 #define SPI_MISO_bm     PIN5_bm
 #define SPI_SCK_bm      PIN6_bm
 #define SPI_SS_bm       PIN7_bm     /* Player 1 attention */
 
 /* Player 2 attention */
-#define P2_ATTN_PORT    PORTD
-#define P2_ATTN_bm      PIN4_bm
+#define P2_ATTN_PORT    PORTA
+#define P2_ATTN_bm      PIN1_bm
 
 /* ACK from the PSX bus */
 #define ACK_PORT        PORTC
@@ -132,13 +132,13 @@ static inline void attn_high(controller_t *port)
 
 static void clock_init(void)
 {
-    /* Run the main clock from the internal 24 MHz HF oscillator with the
+    /* Run the main clock from the internal 16 MHz HF oscillator with the
      * USB-SOF auto-tune option enabled so the oscillator is calibrated by
      * USB host frame timing while the device is enumerated. */
     ccp_write_io((void *)&CLKCTRL.OSCHFCTRLA,
                  CLKCTRL_FRQSEL_16M_gc | CLKCTRL_AUTOTUNE_SOF_gc);
     ccp_write_io((void *)&CLKCTRL.MCLKCTRLA, CLKCTRL_CLKSEL_OSCHF_gc);
-    ccp_write_io((void *)&CLKCTRL.MCLKCTRLB, 0); /* No prescaler -> 24 MHz */
+    ccp_write_io((void *)&CLKCTRL.MCLKCTRLB, 0); /* No prescaler -> 16 MHz */
 }
 
 /* ------------------------------------------------------------------ */
@@ -153,7 +153,7 @@ static void pins_init(void)
 
     /* MISO as input with internal pull-up (controllers drive open-drain). */
     SPI_PORT.DIRCLR = SPI_MISO_bm;
-    PORTA.PIN5CTRL  = PORT_PULLUPEN_bm;
+    SPI_PORT.PIN5CTRL  = PORT_PULLUPEN_bm;
 
     /* Player-2 ATTN */
     P2_ATTN_PORT.DIRSET = P2_ATTN_bm;
@@ -179,14 +179,12 @@ static void spi_init(void)
      *   - LSB first
      *   - ~250 kHz bit clock
      *
-     * With F_CPU = 24 MHz, the slowest prescaler available is CLK/128 ->
-     * 187.5 kHz.  That is well under the 250 kHz target and within the
-     * PSX controller's tolerance, so we use it.
+     * With F_CPU = 16 MHz, and prescale divider of 64, clock speed of 250 khz is achieved
      */
     SPI0.CTRLB = SPI_MODE_3_gc | SPI_SSD_bm;    /* mode 3, disable SS slave-fault */
     SPI0.CTRLA = SPI_MASTER_bm                  /* master mode */
                | SPI_DORD_bm                    /* LSB first */
-               | SPI_PRESC_DIV128_gc            /* /128 -> 187.5 kHz */
+               | SPI_PRESC_DIV64_gc            /* /64 -> 250 kHz */
                | SPI_ENABLE_bm;
 }
 
@@ -790,7 +788,7 @@ static void hid_publish_reports(void)
 
         usb_endpoints[1].IN.DATAPTR = (uint8_t *)&ep1_in_buf;
         usb_endpoints[1].IN.CNT     = HID_IN_REPORT_SIZE;
-        usb_endpoints[1].IN.STATUS &= ~(USB_BUSNAK0_bm | USB_TRNCOMPL0_bm);
+        usb_endpoints[1].IN.STATUS &= ~(USB_BUS | USB_TRNCOMPL0_bm);
         ep1_in_busy = 1;
         return;     /* one report per call - next call drains the other */
     }
