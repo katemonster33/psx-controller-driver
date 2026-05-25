@@ -1,0 +1,10 @@
+/MultiPsxToUsbFW.X/build/
+/MultiPsxToUsbFW.X/dist/
+/MultiPsxToUsbFW.X/.generated_files/
+/MultiPsxToUsbFW.X/mcc-manifest-autosave.yml
+/MultiPsxToUsbFW.X/mcc-manifest-generated-success.yml
+/MultiPsxToUsbFW.X/defmplabxtrace.log
+/MultiPsxToUsbFW.X/defmplabxtrace.log.inx
+/MultiPsxToUsbFW.X/nbproject/private/
+/MultiPsxToUsbFW.X/queuelogs/
+*.lck
