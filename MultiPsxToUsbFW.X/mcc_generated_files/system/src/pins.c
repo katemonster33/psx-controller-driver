@@ -37,9 +37,9 @@
 static void (*IO_PD5_InterruptHandler)(void);
 static void (*IO_PD4_InterruptHandler)(void);
 static void (*IO_PD6_InterruptHandler)(void);
-static void (*IO_PA0_InterruptHandler)(void);
-static void (*IO_PC3_InterruptHandler)(void);
-static void (*IO_PD7_InterruptHandler)(void);
+static void (*RUMBLE_SS_InterruptHandler)(void);
+static void (*ACK_InterruptHandler)(void);
+static void (*ATT_InterruptHandler)(void);
 
 void PIN_MANAGER_Initialize()
 {
@@ -47,7 +47,7 @@ void PIN_MANAGER_Initialize()
   /* OUT Registers Initialization */
     PORTA.OUT = 0x0;
     PORTC.OUT = 0x0;
-    PORTD.OUT = 0x0;
+    PORTD.OUT = 0x80;
     PORTF.OUT = 0x0;
 
   /* DIR Registers Initialization */
@@ -68,7 +68,7 @@ void PIN_MANAGER_Initialize()
     PORTC.PIN0CTRL = 0x0;
     PORTC.PIN1CTRL = 0x0;
     PORTC.PIN2CTRL = 0x0;
-    PORTC.PIN3CTRL = 0x0;
+    PORTC.PIN3CTRL = 0x2;
     PORTC.PIN4CTRL = 0x0;
     PORTC.PIN5CTRL = 0x0;
     PORTC.PIN6CTRL = 0x0;
@@ -102,9 +102,9 @@ void PIN_MANAGER_Initialize()
     IO_PD5_SetInterruptHandler(IO_PD5_DefaultInterruptHandler);
     IO_PD4_SetInterruptHandler(IO_PD4_DefaultInterruptHandler);
     IO_PD6_SetInterruptHandler(IO_PD6_DefaultInterruptHandler);
-    IO_PA0_SetInterruptHandler(IO_PA0_DefaultInterruptHandler);
-    IO_PC3_SetInterruptHandler(IO_PC3_DefaultInterruptHandler);
-    IO_PD7_SetInterruptHandler(IO_PD7_DefaultInterruptHandler);
+    RUMBLE_SS_SetInterruptHandler(RUMBLE_SS_DefaultInterruptHandler);
+    ACK_SetInterruptHandler(ACK_DefaultInterruptHandler);
+    ATT_SetInterruptHandler(ATT_DefaultInterruptHandler);
 }
 
 /**
@@ -147,50 +147,50 @@ void IO_PD6_DefaultInterruptHandler(void)
     // or set custom function using IO_PD6_SetInterruptHandler()
 }
 /**
-  Allows selecting an interrupt handler for IO_PA0 at application runtime
+  Allows selecting an interrupt handler for RUMBLE_SS at application runtime
 */
-void IO_PA0_SetInterruptHandler(void (* interruptHandler)(void)) 
+void RUMBLE_SS_SetInterruptHandler(void (* interruptHandler)(void)) 
 {
-    IO_PA0_InterruptHandler = interruptHandler;
+    RUMBLE_SS_InterruptHandler = interruptHandler;
 }
 
-void IO_PA0_DefaultInterruptHandler(void)
+void RUMBLE_SS_DefaultInterruptHandler(void)
 {
-    // add your IO_PA0 interrupt custom code
-    // or set custom function using IO_PA0_SetInterruptHandler()
+    // add your RUMBLE_SS interrupt custom code
+    // or set custom function using RUMBLE_SS_SetInterruptHandler()
 }
 /**
-  Allows selecting an interrupt handler for IO_PC3 at application runtime
+  Allows selecting an interrupt handler for ACK at application runtime
 */
-void IO_PC3_SetInterruptHandler(void (* interruptHandler)(void)) 
+void ACK_SetInterruptHandler(void (* interruptHandler)(void)) 
 {
-    IO_PC3_InterruptHandler = interruptHandler;
+    ACK_InterruptHandler = interruptHandler;
 }
 
-void IO_PC3_DefaultInterruptHandler(void)
+void ACK_DefaultInterruptHandler(void)
 {
-    // add your IO_PC3 interrupt custom code
-    // or set custom function using IO_PC3_SetInterruptHandler()
+    // add your ACK interrupt custom code
+    // or set custom function using ACK_SetInterruptHandler()
 }
 /**
-  Allows selecting an interrupt handler for IO_PD7 at application runtime
+  Allows selecting an interrupt handler for ATT at application runtime
 */
-void IO_PD7_SetInterruptHandler(void (* interruptHandler)(void)) 
+void ATT_SetInterruptHandler(void (* interruptHandler)(void)) 
 {
-    IO_PD7_InterruptHandler = interruptHandler;
+    ATT_InterruptHandler = interruptHandler;
 }
 
-void IO_PD7_DefaultInterruptHandler(void)
+void ATT_DefaultInterruptHandler(void)
 {
-    // add your IO_PD7 interrupt custom code
-    // or set custom function using IO_PD7_SetInterruptHandler()
+    // add your ATT interrupt custom code
+    // or set custom function using ATT_SetInterruptHandler()
 }
 ISR(PORTA_PORT_vect)
 { 
     // Call the interrupt handler for the callback registered at runtime
     if(VPORTA.INTFLAGS & PORT_INT0_bm)
     {
-       IO_PA0_InterruptHandler(); 
+       RUMBLE_SS_InterruptHandler(); 
     }
     /* Clear interrupt flags */
     VPORTA.INTFLAGS = 0xff;
@@ -201,7 +201,7 @@ ISR(PORTC_PORT_vect)
     // Call the interrupt handler for the callback registered at runtime
     if(VPORTC.INTFLAGS & PORT_INT3_bm)
     {
-       IO_PC3_InterruptHandler(); 
+       ACK_InterruptHandler(); 
     }
     /* Clear interrupt flags */
     VPORTC.INTFLAGS = 0xff;
@@ -224,7 +224,7 @@ ISR(PORTD_PORT_vect)
     }
     if(VPORTD.INTFLAGS & PORT_INT7_bm)
     {
-       IO_PD7_InterruptHandler(); 
+       ATT_InterruptHandler(); 
     }
     /* Clear interrupt flags */
     VPORTD.INTFLAGS = 0xff;

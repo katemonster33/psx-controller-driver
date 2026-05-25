@@ -74,6 +74,7 @@ static uint8_t readMode[sizeof(readMode_template)];
 // Interrupt variables
 volatile bool vbusFlag = true;
 bool sendMouseMovement = false;
+volatile bool controllerAcked = false;
 
 // USB status variable
 RETURN_CODE_t status;
@@ -89,6 +90,7 @@ static void   setup_controller(controller_t *port);
 static void   poll_controllers(void);
 
 void USB_ConnectionHandler();
+void ACKPin_OnRisingEdge();
 
 /* ------------------------------------------------------------------ */
 /*  Pin helpers                                                        */
@@ -96,6 +98,7 @@ void USB_ConnectionHandler();
 
 static inline void attn_low(controller_t *port)
 {
+    ATT_SetLow();
     SPI0_Open(0);
     //if (port->index == 0) SPI_PORT.OUTCLR     = SPI_SS_bm;
     //else                  P2_ATTN_PORT.OUTCLR = P2_ATTN_bm;
@@ -104,6 +107,7 @@ static inline void attn_low(controller_t *port)
 static inline void attn_high(controller_t *port)
 {
     SPI0_Close();
+    ATT_SetHigh();
     //if (port->index == 0) SPI_PORT.OUTSET     = SPI_SS_bm;
     //else                  P2_ATTN_PORT.OUTSET = P2_ATTN_bm;
 }
@@ -115,6 +119,7 @@ static inline void attn_high(controller_t *port)
 int main(void)
 {
     SYSTEM_Initialize();
+    ACK_SetInterruptHandler();
     
     for (uint8_t i = 0; i < NUM_CONTROLLERS; i++) {
         controllers[i].id            = 0x0F;
@@ -175,14 +180,12 @@ void USB_ConnectionHandler()
 static bool wait_ack(void)
 {
     /*
-     * The original sketch simply waited a fixed inter-byte gap instead
-     * of actually sampling ACK.  Keep that behaviour for compatibility -
-     * it works with every controller tested in practice.  PC3 is still
-     * wired up so callers can switch to true ACK polling later if
-     * desired.
+     * Wait for INTER_CMD_BYTE_DELAY_US microseconds and see if the ACK pin interrupt fires in that time. 
+     *  if not, no controller.
      */
+    controllerAcked = false;
     _delay_us(INTER_CMD_BYTE_DELAY_US);
-    return true;
+    return controllerAcked;
 }
 
 static bool send_string(controller_t *port, const uint8_t *str, uint8_t len)
@@ -273,4 +276,9 @@ static void poll_controllers(void)
             port->report_dirty = 1;
         }
     }
+}
+
+void ACKPin_OnRisingEdge()
+{
+    controllerAcked = true;
 }
