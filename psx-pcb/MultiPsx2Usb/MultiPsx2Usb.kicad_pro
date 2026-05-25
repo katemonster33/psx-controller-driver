@@ -520,7 +520,7 @@
       {
         "name": "+3V3",
         "pcb_color": "rgba(0, 0, 0, 0.000)",
-        "priority": 0,
+        "priority": 1,
         "schematic_color": "rgba(0, 0, 0, 0.000)",
         "tuning_profile": "",
         "wire_width": 10
@@ -528,7 +528,7 @@
       {
         "name": "5V",
         "pcb_color": "rgba(0, 0, 0, 0.000)",
-        "priority": 1,
+        "priority": 2,
         "schematic_color": "rgba(0, 0, 0, 0.000)",
         "track_width": 0.3,
         "tuning_profile": "",
@@ -537,12 +537,20 @@
       {
         "name": "7.5V",
         "pcb_color": "rgba(0, 0, 0, 0.000)",
-        "priority": 2,
+        "priority": 3,
         "schematic_color": "rgba(0, 0, 0, 0.000)",
         "track_width": 0.5,
         "tuning_profile": "",
         "via_diameter": 0.8,
         "via_drill": 0.5,
+        "wire_width": 20
+      },
+      {
+        "name": "GND",
+        "pcb_color": "rgba(0, 0, 0, 0.000)",
+        "priority": 0,
+        "schematic_color": "rgba(0, 0, 0, 0.000)",
+        "tuning_profile": "",
         "wire_width": 20
       }
     ],
@@ -579,6 +587,10 @@
       {
         "netclass": "Default",
         "pattern": "USB"
+      },
+      {
+        "netclass": "GND",
+        "pattern": "GND"
       }
     ]
   },
@@ -722,7 +734,7 @@
         "uuid": "0a3ff365-a0d9-42e7-b859-f380807ad1ab"
       }
     ],
-    "used_designators": "",
+    "used_designators": "#PWR7,#PWR27,C9",
     "variants": []
   },
   "sheets": [
