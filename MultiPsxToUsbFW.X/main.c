@@ -37,6 +37,7 @@
 #include <usb_core.h>
 #include <util/delay.h>
 #include <string.h>
+#include <avr/sleep.h>
 // Number of consecutive equal AC measurements before power is seen as stable
 #define AC_MEASUREMENT_STABLE_COUNT 5U
 
@@ -56,6 +57,7 @@ typedef struct {
 } controller_t;
 
 #define NUM_CONTROLLERS 1
+
 
 static controller_t controllers[NUM_CONTROLLERS];
 
@@ -99,7 +101,16 @@ void ACKPin_OnRisingEdge();
 static inline void attn_low(controller_t *port)
 {
     ATT_SetLow();
-    SPI0_Open(0);
+    //SPI0_Open(0);
+    
+    // { 0x25, 0xc7 },
+
+
+    SPI0.CTRLB = SPI_MODE_3_gc | SPI_SSD_bm;    /* mode 3, disable SS slave-fault */
+    SPI0.CTRLA = SPI_MASTER_bm                  /* master mode */
+               | SPI_DORD_bm                    /* LSB first */
+              | SPI_PRESC_DIV64_gc            /* /64 -> 250 kHz */
+               | SPI_ENABLE_bm;
     //if (port->index == 0) SPI_PORT.OUTCLR     = SPI_SS_bm;
     //else                  P2_ATTN_PORT.OUTCLR = P2_ATTN_bm;
 }
@@ -119,8 +130,10 @@ static inline void attn_high(controller_t *port)
 int main(void)
 {
     SYSTEM_Initialize();
-    ACK_SetInterruptHandler();
+
+    ACK_SetInterruptHandler(ACKPin_OnRisingEdge);
     
+    ATT_SetHigh();
     for (uint8_t i = 0; i < NUM_CONTROLLERS; i++) {
         controllers[i].id            = 0x0F;
         controllers[i].index         = i;
@@ -134,6 +147,8 @@ int main(void)
         poll_controllers();
         
         USB_ConnectionHandler();
+        
+        _delay_ms(10);
     }    
 }
 
@@ -199,7 +214,9 @@ static bool send_string(controller_t *port, const uint8_t *str, uint8_t len)
 
     for (uint8_t i = 0; i < new_len; i++) {
         uint8_t cmd = (i < len) ? str[i] : 0x5A;
-        uint8_t rx  = SPI0_ByteExchange(cmd);
+        SPI0.DATA = cmd;
+        while (!(SPI0.INTFLAGS & SPI_RXCIF_bm)) { }
+        uint8_t rx = SPI0.DATA;
         if (i < sizeof(port->psx_buffer)) port->psx_buffer[i] = rx;
 
         if (i == 1) {
