@@ -10,7 +10,7 @@
  * @version USB_DEVICE_STACK Driver Version 1.0.0
 */
 /*
-© [2026] Microchip Technology Inc. and its subsidiaries.
+(c) [2026] Microchip Technology Inc. and its subsidiaries.
 
     Subject to your compliance with these terms, you may use Microchip 
     software and any derivatives exclusively with Microchip products. 
@@ -78,10 +78,15 @@ typedef struct USB_APPLICATION_CONFIGURATION1_struct
     USB_INTERFACE_DESCRIPTOR_t Interface0Alternate0;
     USB_HID_DESCRIPTOR_t HID_Descriptor0;
     USB_ENDPOINT_DESCRIPTOR_t Interface0Alternate0_Endpoint1IN;
-    USB_ENDPOINT_DESCRIPTOR_t Interface0Alternate0_Endpoint2OUT;
-    USB_ENDPOINT_DESCRIPTOR_t Interface0Alternate0_Endpoint3IN;
-    USB_ENDPOINT_DESCRIPTOR_t Interface0Alternate0_Endpoint4OUT;
-    USB_ENDPOINT_DESCRIPTOR_t Interface0Alternate0_Endpoint5IN;
+    USB_INTERFACE_DESCRIPTOR_t Interface1Alternate0;
+    USB_HID_DESCRIPTOR_t HID_Descriptor1;
+    USB_ENDPOINT_DESCRIPTOR_t Interface1Alternate0_Endpoint2IN;
+    USB_INTERFACE_DESCRIPTOR_t Interface2Alternate0;
+    USB_HID_DESCRIPTOR_t HID_Descriptor2;
+    USB_ENDPOINT_DESCRIPTOR_t Interface2Alternate0_Endpoint3IN;
+    USB_INTERFACE_DESCRIPTOR_t Interface3Alternate0;
+    USB_HID_DESCRIPTOR_t HID_Descriptor3;
+    USB_ENDPOINT_DESCRIPTOR_t Interface3Alternate0_Endpoint4IN;
 } USB_APPLICATION_CONFIGURATION1_t;
 
 /**

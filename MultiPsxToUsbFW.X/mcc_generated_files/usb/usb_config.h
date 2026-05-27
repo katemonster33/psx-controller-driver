@@ -13,7 +13,7 @@
  * @version USB_DEVICE_STACK Driver Version 1.0.0
 */
 /*
-© [2026] Microchip Technology Inc. and its subsidiaries.
+(c) [2026] Microchip Technology Inc. and its subsidiaries.
 
     Subject to your compliance with these terms, you may use Microchip 
     software and any derivatives exclusively with Microchip products. 
@@ -45,7 +45,7 @@
  * @brief Limits the size of the endpoint table and transfer array in the RAM 
  * to 1 + the highest endpoint address used by the application.
  */
-#define USB_EP_NUM 6U 
+#define USB_EP_NUM 5U
 
 /**
  * @ingroup usb_device_stack
@@ -68,10 +68,9 @@
  */
 ///@{
 #define INTERFACE0ALTERNATE0_INTERRUPT_EP1_IN 1U
-#define INTERFACE0ALTERNATE0_ISOCHRONOUS_EP2_OUT 2U
-#define INTERFACE0ALTERNATE0_ISOCHRONOUS_EP3_IN 3U
-#define INTERFACE0ALTERNATE0_ISOCHRONOUS_EP4_OUT 4U
-#define INTERFACE0ALTERNATE0_ISOCHRONOUS_EP5_IN 5U
+#define INTERFACE1ALTERNATE0_INTERRUPT_EP2_IN 2U
+#define INTERFACE2ALTERNATE0_INTERRUPT_EP3_IN 3U
+#define INTERFACE3ALTERNATE0_INTERRUPT_EP4_IN 4U
 ///@}
 
 /**
@@ -81,10 +80,9 @@
  */
 ///@{
 #define INTERFACE0ALTERNATE0_INTERRUPT_EP1_IN_SIZE 64U
-#define INTERFACE0ALTERNATE0_ISOCHRONOUS_EP2_OUT_SIZE 64U
-#define INTERFACE0ALTERNATE0_ISOCHRONOUS_EP3_IN_SIZE 64U
-#define INTERFACE0ALTERNATE0_ISOCHRONOUS_EP4_OUT_SIZE 64U
-#define INTERFACE0ALTERNATE0_ISOCHRONOUS_EP5_IN_SIZE 64U
+#define INTERFACE1ALTERNATE0_INTERRUPT_EP2_IN_SIZE 64U
+#define INTERFACE2ALTERNATE0_INTERRUPT_EP3_IN_SIZE 64U
+#define INTERFACE3ALTERNATE0_INTERRUPT_EP4_IN_SIZE 64U
 ///@}
 
 /**
@@ -99,14 +97,14 @@
  * @def USB_HID_REPORT_DESCRIPTOR_SIZE
  * @brief Macro for the Human Interface Devices (HID) report descriptor size
  */
-#define USB_HID_REPORT_DESCRIPTOR_SIZE 7U
+#define USB_HID_REPORT_DESCRIPTOR_SIZE 69U
 
 /**
  * @ingroup usb_device_stack
  * @def USB_INTERFACE_NUM
  * @brief The number of interfaces used by a configuration, excluding alternate interfaces.
  */
-#define USB_INTERFACE_NUM 1U
+#define USB_INTERFACE_NUM 4U
 
 /**
  * @ingroup usb_device_stack
@@ -132,10 +130,9 @@ typedef struct USB_EP_STATIC_CONFIG_BITS_struct
 static const USB_EP_STATIC_CONFIG_BITS_t endpointStaticConfig [USB_EP_NUM] = {
     [0] = {.InTrncInterruptEnable = 1, .OutTrncInterruptEnable = 1, .InMultipktEnable = 1, .InAzlpEnable = 0, .OutMultipktEnable = 1, .OutAzlpEnable = 0},
     [1] = {.InTrncInterruptEnable = 1, .OutTrncInterruptEnable = 1, .InMultipktEnable = 0, .InAzlpEnable = 0},
-    [2] = {.InTrncInterruptEnable = 1, .OutTrncInterruptEnable = 1, .OutMultipktEnable = 0, .OutAzlpEnable = 0},
+    [2] = {.InTrncInterruptEnable = 1, .OutTrncInterruptEnable = 1, .InMultipktEnable = 0, .InAzlpEnable = 0},
     [3] = {.InTrncInterruptEnable = 1, .OutTrncInterruptEnable = 1, .InMultipktEnable = 0, .InAzlpEnable = 0},
-    [4] = {.InTrncInterruptEnable = 1, .OutTrncInterruptEnable = 1, .OutMultipktEnable = 0, .OutAzlpEnable = 0},
-    [5] = {.InTrncInterruptEnable = 1, .OutTrncInterruptEnable = 1, .InMultipktEnable = 0, .InAzlpEnable = 0},
+    [4] = {.InTrncInterruptEnable = 1, .OutTrncInterruptEnable = 1, .InMultipktEnable = 0, .InAzlpEnable = 0},
 };
 
 #endif // USB_CONFIG_H

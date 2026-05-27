@@ -10,7 +10,7 @@
  * @version USB_DEVICE_STACK Driver Version 1.0.0
 */
 /*
-© [2026] Microchip Technology Inc. and its subsidiaries.
+(c) [2026] Microchip Technology Inc. and its subsidiaries.
 
     Subject to your compliance with these terms, you may use Microchip 
     software and any derivatives exclusively with Microchip products. 
@@ -34,13 +34,46 @@
 #include "usb_descriptors.h"
 #include <usb_protocol_headers.h>
 
+#define GAMEPAD_REPORT_COLLECTION \
+    0x05, 0x01,       /* Usage Page (Generic Desktop) */ \
+    0x09, 0x05,       /* Usage (Game Pad) */ \
+    0xA1, 0x01,       /* Collection (Application) */ \
+    0x15, 0x00,       /* Logical Minimum (0) */ \
+    0x26, 0xFF, 0x00, /* Logical Maximum (255) */ \
+    0x75, 0x08,       /* Report Size (8) */ \
+    0x95, 0x06,       /* Report Count (6) */ \
+    0x09, 0x30,       /* Usage (X) */ \
+    0x09, 0x31,       /* Usage (Y) */ \
+    0x09, 0x33,       /* Usage (Rx) */ \
+    0x09, 0x34,       /* Usage (Ry) */ \
+    0x09, 0x32,       /* Usage (Z) */ \
+    0x09, 0x35,       /* Usage (Rz) */ \
+    0x81, 0x02,       /* Input (Data, Variable, Absolute) */ \
+    0x05, 0x01,       /* Usage Page (Generic Desktop) */ \
+    0x25, 0x07,       /* Logical Maximum (7) */ \
+    0x46, 0x3B, 0x01, /* Physical Maximum (315) */ \
+    0x65, 0x14,       /* Unit (English Rotation, Degrees) */ \
+    0x75, 0x04,       /* Report Size (4) */ \
+    0x95, 0x01,       /* Report Count (1) */ \
+    0x09, 0x39,       /* Usage (Hat switch) */ \
+    0x81, 0x42,       /* Input (Data, Variable, Absolute, Null State) */ \
+    0x05, 0x09,       /* Usage Page (Button) */ \
+    0x19, 0x01,       /* Usage Minimum (Button 1) */ \
+    0x29, 0x09,       /* Usage Maximum (Button 9) */ \
+    0x15, 0x00,       /* Logical Minimum (0) */ \
+    0x25, 0x01,       /* Logical Maximum (1) */ \
+    0x75, 0x01,       /* Report Size (1) */ \
+    0x95, 0x09,       /* Report Count (9) */ \
+    0x81, 0x02,       /* Input (Data, Variable, Absolute) */ \
+    0x75, 0x01,       /* Report Size (1) */ \
+    0x95, 0x03,       /* Report Count (3) */ \
+    0x81, 0x03,       /* Input (Constant, Variable, Absolute) */ \
+    0xC0              /* End Collection */
+
 //HID Report descriptor
 USB_HID_REPORT_DESCRIPTOR_t USB_HIDReportDescriptor = {
     {
-        0x05, 0x81, /* Usage Page (Vendor Defined)      */
-        0x09, 0x82, /* Usage (Vendor Defined)           */
-        0xA1, 0x01, /* Collection (Application)         */
-        0xC0 /* End Collection                   */
+        GAMEPAD_REPORT_COLLECTION,
     },
 };
 
@@ -89,7 +122,7 @@ static USB_APPLICATION_CONFIGURATION_t configurationDescriptor = {
             },
             .bInterfaceNumber = 0U,
             .bAlternateSetting = 0U,
-            .bNumEndpoints = 5U,
+            .bNumEndpoints = 1U,
             .bInterfaceClass = USB_HID_DEVICE_CLASS, // HID
             .bInterfaceSubClass = HID_SUB_CLASS_NOBOOT,
             .bInterfaceProtocol = HID_PROTOCOL_GENERIC,
@@ -103,7 +136,7 @@ static USB_APPLICATION_CONFIGURATION_t configurationDescriptor = {
                 .bDescriptorType = USB_DT_HID,
             },
             .bcdHID = 0x111, // 1.11
-            .bCountryCode = USB_HID_COUNTRY_CANADIAN_BILINGUAL,
+            .bCountryCode = USB_HID_NO_COUNTRY_CODE,
             .bNumDescriptors = USB_HID_NUM_DESC,
             .bRDescriptorType = USB_DT_HID_REPORT,
             .wDescriptorLength = USB_HID_REPORT_DESCRIPTOR_SIZE,
@@ -129,28 +162,35 @@ static USB_APPLICATION_CONFIGURATION_t configurationDescriptor = {
             .wMaxPacketSize = INTERFACE0ALTERNATE0_INTERRUPT_EP1_IN_SIZE,
             .bInterval = 1U,
         },
-        .Interface0Alternate0_Endpoint2OUT =
+        .Interface1Alternate0 =
         {
             .header =
             {
-                .bLength = sizeof (USB_ENDPOINT_DESCRIPTOR_t),
-                .bDescriptorType = USB_DESCRIPTOR_TYPE_ENDPOINT,
+                .bLength = sizeof (USB_INTERFACE_DESCRIPTOR_t),
+                .bDescriptorType = USB_DESCRIPTOR_TYPE_INTERFACE,
             },
-            .bEndpointAddress =
-            {
-                .direction = USB_EP_DIR_OUT,
-                .address = INTERFACE0ALTERNATE0_ISOCHRONOUS_EP2_OUT,
-            },
-            .bmAttributes =
-            {
-                .type = ISOCHRONOUS,
-                .synchronisation = 1U, // Asynchronous
-                .usage = 0U, // Data
-            },
-            .wMaxPacketSize = INTERFACE0ALTERNATE0_ISOCHRONOUS_EP2_OUT_SIZE,
-            .bInterval = 1U,
+            .bInterfaceNumber = 1U,
+            .bAlternateSetting = 0U,
+            .bNumEndpoints = 1U,
+            .bInterfaceClass = USB_HID_DEVICE_CLASS, // HID
+            .bInterfaceSubClass = HID_SUB_CLASS_NOBOOT,
+            .bInterfaceProtocol = HID_PROTOCOL_GENERIC,
+            .iInterface = 0U,
         },
-        .Interface0Alternate0_Endpoint3IN =
+        .HID_Descriptor1 =
+        {
+            .header =
+            {
+                .bLength = sizeof (USB_HID_DESCRIPTOR_t),
+                .bDescriptorType = USB_DT_HID,
+            },
+            .bcdHID = 0x111, // 1.11
+            .bCountryCode = USB_HID_NO_COUNTRY_CODE,
+            .bNumDescriptors = USB_HID_NUM_DESC,
+            .bRDescriptorType = USB_DT_HID_REPORT,
+            .wDescriptorLength = USB_HID_REPORT_DESCRIPTOR_SIZE,
+        },
+        .Interface1Alternate0_Endpoint2IN =
         {
             .header =
             {
@@ -160,39 +200,46 @@ static USB_APPLICATION_CONFIGURATION_t configurationDescriptor = {
             .bEndpointAddress =
             {
                 .direction = USB_EP_DIR_IN,
-                .address = INTERFACE0ALTERNATE0_ISOCHRONOUS_EP3_IN,
+                .address = INTERFACE1ALTERNATE0_INTERRUPT_EP2_IN,
             },
             .bmAttributes =
             {
-                .type = ISOCHRONOUS,
-                .synchronisation = 1U, // Asynchronous
-                .usage = 0U, // Data
+                .type = INTERRUPT,
+                .synchronisation = 0U, // None
+                .usage = 0U, // None
             },
-            .wMaxPacketSize = INTERFACE0ALTERNATE0_ISOCHRONOUS_EP3_IN_SIZE,
+            .wMaxPacketSize = INTERFACE1ALTERNATE0_INTERRUPT_EP2_IN_SIZE,
             .bInterval = 1U,
         },
-        .Interface0Alternate0_Endpoint4OUT =
+        .Interface2Alternate0 =
         {
             .header =
             {
-                .bLength = sizeof (USB_ENDPOINT_DESCRIPTOR_t),
-                .bDescriptorType = USB_DESCRIPTOR_TYPE_ENDPOINT,
+                .bLength = sizeof (USB_INTERFACE_DESCRIPTOR_t),
+                .bDescriptorType = USB_DESCRIPTOR_TYPE_INTERFACE,
             },
-            .bEndpointAddress =
-            {
-                .direction = USB_EP_DIR_OUT,
-                .address = INTERFACE0ALTERNATE0_ISOCHRONOUS_EP4_OUT,
-            },
-            .bmAttributes =
-            {
-                .type = ISOCHRONOUS,
-                .synchronisation = 1U, // Asynchronous
-                .usage = 0U, // Data
-            },
-            .wMaxPacketSize = INTERFACE0ALTERNATE0_ISOCHRONOUS_EP4_OUT_SIZE,
-            .bInterval = 1U,
+            .bInterfaceNumber = 2U,
+            .bAlternateSetting = 0U,
+            .bNumEndpoints = 1U,
+            .bInterfaceClass = USB_HID_DEVICE_CLASS, // HID
+            .bInterfaceSubClass = HID_SUB_CLASS_NOBOOT,
+            .bInterfaceProtocol = HID_PROTOCOL_GENERIC,
+            .iInterface = 0U,
         },
-        .Interface0Alternate0_Endpoint5IN =
+        .HID_Descriptor2 =
+        {
+            .header =
+            {
+                .bLength = sizeof (USB_HID_DESCRIPTOR_t),
+                .bDescriptorType = USB_DT_HID,
+            },
+            .bcdHID = 0x111, // 1.11
+            .bCountryCode = USB_HID_NO_COUNTRY_CODE,
+            .bNumDescriptors = USB_HID_NUM_DESC,
+            .bRDescriptorType = USB_DT_HID_REPORT,
+            .wDescriptorLength = USB_HID_REPORT_DESCRIPTOR_SIZE,
+        },
+        .Interface2Alternate0_Endpoint3IN =
         {
             .header =
             {
@@ -202,15 +249,64 @@ static USB_APPLICATION_CONFIGURATION_t configurationDescriptor = {
             .bEndpointAddress =
             {
                 .direction = USB_EP_DIR_IN,
-                .address = INTERFACE0ALTERNATE0_ISOCHRONOUS_EP5_IN,
+                .address = INTERFACE2ALTERNATE0_INTERRUPT_EP3_IN,
             },
             .bmAttributes =
             {
-                .type = ISOCHRONOUS,
-                .synchronisation = 1U, // Asynchronous
-                .usage = 0U, // Data
+                .type = INTERRUPT,
+                .synchronisation = 0U, // None
+                .usage = 0U, // None
             },
-            .wMaxPacketSize = INTERFACE0ALTERNATE0_ISOCHRONOUS_EP5_IN_SIZE,
+            .wMaxPacketSize = INTERFACE2ALTERNATE0_INTERRUPT_EP3_IN_SIZE,
+            .bInterval = 1U,
+        },
+        .Interface3Alternate0 =
+        {
+            .header =
+            {
+                .bLength = sizeof (USB_INTERFACE_DESCRIPTOR_t),
+                .bDescriptorType = USB_DESCRIPTOR_TYPE_INTERFACE,
+            },
+            .bInterfaceNumber = 3U,
+            .bAlternateSetting = 0U,
+            .bNumEndpoints = 1U,
+            .bInterfaceClass = USB_HID_DEVICE_CLASS, // HID
+            .bInterfaceSubClass = HID_SUB_CLASS_NOBOOT,
+            .bInterfaceProtocol = HID_PROTOCOL_GENERIC,
+            .iInterface = 0U,
+        },
+        .HID_Descriptor3 =
+        {
+            .header =
+            {
+                .bLength = sizeof (USB_HID_DESCRIPTOR_t),
+                .bDescriptorType = USB_DT_HID,
+            },
+            .bcdHID = 0x111, // 1.11
+            .bCountryCode = USB_HID_NO_COUNTRY_CODE,
+            .bNumDescriptors = USB_HID_NUM_DESC,
+            .bRDescriptorType = USB_DT_HID_REPORT,
+            .wDescriptorLength = USB_HID_REPORT_DESCRIPTOR_SIZE,
+        },
+        .Interface3Alternate0_Endpoint4IN =
+        {
+            .header =
+            {
+                .bLength = sizeof (USB_ENDPOINT_DESCRIPTOR_t),
+                .bDescriptorType = USB_DESCRIPTOR_TYPE_ENDPOINT,
+            },
+            .bEndpointAddress =
+            {
+                .direction = USB_EP_DIR_IN,
+                .address = INTERFACE3ALTERNATE0_INTERRUPT_EP4_IN,
+            },
+            .bmAttributes =
+            {
+                .type = INTERRUPT,
+                .synchronisation = 0U, // None
+                .usage = 0U, // None
+            },
+            .wMaxPacketSize = INTERFACE3ALTERNATE0_INTERRUPT_EP4_IN_SIZE,
             .bInterval = 1U,
         },
     },
