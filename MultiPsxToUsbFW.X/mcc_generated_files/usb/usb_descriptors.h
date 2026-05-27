@@ -123,6 +123,9 @@ extern USB_DESCRIPTOR_POINTERS_t descriptorPointers;
 
 extern USB_HID_REPORT_DESCRIPTOR_t USB_HIDReportDescriptor;
 
+void USB_GamepadEndpointCountSet(uint8_t count);
+uint8_t USB_GamepadEndpointCountGet(void);
+
 #endif // USB_DESCRIPTORS_H
 /**
  End of File

@@ -37,6 +37,7 @@
 #include <usb_core.h>
 #include <usb_core_transfer.h>
 #include <usb_config.h>
+#include <usb_descriptors.h>
 #include <util/delay.h>
 #include <string.h>
 #include <avr/sleep.h>
@@ -59,7 +60,10 @@ typedef struct {
 } controller_t;
 
 #define USB_GAMEPAD_COUNT 4U
-#define NUM_CONTROLLERS 1
+#define NUM_CONTROLLERS USB_GAMEPAD_COUNT
+#define USB_REENUMERATE_DELAY_MS 250U
+#define PSX_ID_DISCONNECTED 0x0FU
+#define PSX_ID_MULTITAP 0x08U
 
 typedef struct __attribute__((packed)) {
     uint8_t left_x;
@@ -91,6 +95,7 @@ typedef char usb_gamepad_report_size_must_be_8_bytes[(sizeof(usb_gamepad_report_
 
 
 static controller_t controllers[NUM_CONTROLLERS];
+static controller_t physical_controllers[USB_GAMEPAD_COUNT];
 static volatile uint8_t usb_gamepad_dirty[USB_GAMEPAD_COUNT];
 static volatile bool usb_gamepad_report_busy[USB_GAMEPAD_COUNT];
 static usb_gamepad_report_t usb_gamepad_report_buffer[USB_GAMEPAD_COUNT];
@@ -100,8 +105,11 @@ static USB_PIPE_t usb_gamepad_pipes[USB_GAMEPAD_COUNT] = {
     {.address = INTERFACE2ALTERNATE0_INTERRUPT_EP3_IN, .direction = USB_EP_DIR_IN},
     {.address = INTERFACE3ALTERNATE0_INTERRUPT_EP4_IN, .direction = USB_EP_DIR_IN},
 };
+static uint8_t usb_pending_gamepad_count = 0U;
+static uint8_t usb_active_gamepad_count = 0U;
 
 static const uint8_t readMode_template[]     = { 0x01, 0x42, 0x00, 0x00, 0x00 };
+static const uint8_t multitapReadMode_template[] = { 0x01, 0x42, 0x00, 0x00, 0x00 };
 static const uint8_t setAnalogMode[]         = { 0x01, 0x44, 0x00, 0x01, 0x03, 0x00, 0x00, 0x00, 0x00 };
 static const uint8_t enterConfigMode[]       = { 0x01, 0x43, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00 };
 static const uint8_t enableRumbleMode[]      = { 0x01, 0x4D, 0x00, 0x00, 0x01, 0xFF, 0xFF, 0xFF, 0xFF };
@@ -126,11 +134,21 @@ RETURN_CODE_t status;
 /* ------------------------------------------------------------------ */
 
 static bool   wait_ack(void);
+static bool   send_string_internal(controller_t *port, const uint8_t *str, uint8_t len, bool auto_setup);
 static bool   send_string(controller_t *port, const uint8_t *str, uint8_t len);
 static bool   send_string_retry(controller_t *port, const uint8_t *str, uint8_t len);
+static bool   send_string_no_setup(controller_t *port, const uint8_t *str, uint8_t len);
+static bool   send_string_no_setup_retry(controller_t *port, const uint8_t *str, uint8_t len);
 static void   setup_controller(controller_t *port);
+static void   setup_controller_at_address(controller_t *port, uint8_t address);
+static void   send_setup_command_at_address(controller_t *port, const uint8_t *str, uint8_t len, uint8_t address);
 static void   poll_controllers(void);
+static void   clear_controller(controller_t *port);
+static void   init_controller_state(controller_t *port, uint8_t index);
+static void   copy_controller_state(controller_t *dest, const controller_t *src);
 static void   mark_all_gamepads_dirty(void);
+static void   usb_gamepad_count_pending_set(uint8_t count);
+static void   usb_reenumerate_delay(void);
 static uint8_t psx_hat_get(uint16_t buttons);
 static uint16_t psx_hid_buttons_get(uint16_t buttons);
 static void   build_gamepad_report(uint8_t gamepad, usb_gamepad_report_t *report);
@@ -178,14 +196,13 @@ int main(void)
     SYSTEM_Initialize();
 
     ACK_SetInterruptHandler(ACKPin_OnRisingEdge);
+    USB_GamepadEndpointCountSet(0U);
 
     ATT_SetHigh();
     for (uint8_t i = 0; i < NUM_CONTROLLERS; i++) {
-        controllers[i].id            = 0x0F;
-        controllers[i].index         = i;
-        controllers[i].buttons       = 0xFFFF;
-        controllers[i].rumble_active = 0;
-        memset(controllers[i].axes, 0x80, sizeof(controllers[i].axes));
+        init_controller_state(&controllers[i], i);
+        init_controller_state(&physical_controllers[i], i);
+        usb_gamepad_report_busy[i] = false;
     }
     mark_all_gamepads_dirty();
 
@@ -212,6 +229,19 @@ void USB_ConnectionHandler()
     {
         // Handle USB Transfers
         status = USBDevice_StatusGet();
+        if (usb_pending_gamepad_count != usb_active_gamepad_count) {
+            status = USB_Stop();
+            usb_reenumerate_delay();
+            USB_GamepadEndpointCountSet(usb_pending_gamepad_count);
+            status = USB_Start();
+            if (status == SUCCESS) {
+                usb_active_gamepad_count = usb_pending_gamepad_count;
+                for (uint8_t i = 0; i < USB_GAMEPAD_COUNT; i++) {
+                    usb_gamepad_report_busy[i] = false;
+                }
+                mark_all_gamepads_dirty();
+            }
+        }
     }
     // Get current status of VBUS
     bool currentVbusState = vbusFlag;
@@ -222,8 +252,10 @@ void USB_ConnectionHandler()
         if (currentVbusState == true)
         {
             // Start USB operations
+            USB_GamepadEndpointCountSet(0U);
             status = USB_Start();
             if (status == SUCCESS) {
+                usb_active_gamepad_count = 0U;
                 for (uint8_t i = 0; i < USB_GAMEPAD_COUNT; i++) {
                     usb_gamepad_report_busy[i] = false;
                 }
@@ -235,6 +267,7 @@ void USB_ConnectionHandler()
         {
             // Stop USB operations
             status = USB_Stop();
+            usb_active_gamepad_count = 0U;
             for (uint8_t i = 0; i < USB_GAMEPAD_COUNT; i++) {
                 usb_gamepad_report_busy[i] = false;
             }
@@ -260,7 +293,7 @@ static bool wait_ack(void)
     return controllerAcked;
 }
 
-static bool send_string(controller_t *port, const uint8_t *str, uint8_t len)
+static bool send_string_internal(controller_t *port, const uint8_t *str, uint8_t len, bool auto_setup)
 {
     uint8_t new_len = len;
     uint8_t mode    = str[1];
@@ -291,7 +324,7 @@ static bool send_string(controller_t *port, const uint8_t *str, uint8_t len)
 
     if ((mode == 0x42 || mode == 0x43) && port->psx_buffer[1] != 0xF3) {
         uint8_t new_id = port->psx_buffer[1] >> 4;
-        found = (new_id != port->id && port->id == 0x0F);
+        found = (new_id != port->id && port->id == PSX_ID_DISCONNECTED);
         port->id = new_id;
 
         port->buttons = ((uint16_t)port->psx_buffer[3] << 8) | port->psx_buffer[4];
@@ -304,10 +337,20 @@ static bool send_string(controller_t *port, const uint8_t *str, uint8_t len)
 
     attn_high(port);
 
-    if (found) {
+    if (found && auto_setup && (port->id != PSX_ID_MULTITAP)) {
         setup_controller(port);
     }
     return true;
+}
+
+static bool send_string(controller_t *port, const uint8_t *str, uint8_t len)
+{
+    return send_string_internal(port, str, len, true);
+}
+
+static bool send_string_no_setup(controller_t *port, const uint8_t *str, uint8_t len)
+{
+    return send_string_internal(port, str, len, false);
 }
 
 static bool send_string_retry(controller_t *port, const uint8_t *str, uint8_t len)
@@ -319,37 +362,100 @@ static bool send_string_retry(controller_t *port, const uint8_t *str, uint8_t le
     return false;
 }
 
+static bool send_string_no_setup_retry(controller_t *port, const uint8_t *str, uint8_t len)
+{
+    for (uint8_t i = 0; i < 6; i++) {
+        if (send_string_no_setup(port, str, len)) return true;
+        _delay_us(25);
+    }
+    return false;
+}
+
 static void setup_controller(controller_t *port)
 {
+    setup_controller_at_address(port, 1U);
+}
+
+static void send_setup_command_at_address(controller_t *port, const uint8_t *str, uint8_t len, uint8_t address)
+{
+    uint8_t command[sizeof(setAnalogMode)];
+
+    if (len > sizeof(command)) {
+        return;
+    }
+
+    memcpy(command, str, len);
+    command[0] = address;
+    send_string_no_setup_retry(port, command, len);
+}
+
+static void setup_controller_at_address(controller_t *port, uint8_t address)
+{
     _delay_us(50);
-    send_string_retry(port, enterConfigMode,  sizeof(enterConfigMode));
+    send_setup_command_at_address(port, enterConfigMode,  sizeof(enterConfigMode),  address);
     _delay_us(50);
-    send_string_retry(port, setAnalogMode,    sizeof(setAnalogMode));
+    send_setup_command_at_address(port, setAnalogMode,    sizeof(setAnalogMode),    address);
     _delay_us(50);
-    send_string_retry(port, enableRumbleMode, sizeof(enableRumbleMode));
+    send_setup_command_at_address(port, enableRumbleMode, sizeof(enableRumbleMode), address);
     _delay_us(50);
-    send_string_retry(port, exitConfigMode,   sizeof(exitConfigMode));
+    send_setup_command_at_address(port, exitConfigMode,   sizeof(exitConfigMode),   address);
 }
 
 static void poll_controllers(void)
 {
-    for (uint8_t i = 0; i < NUM_CONTROLLERS; i++) {
-        controller_t *port = &controllers[i];
+    static uint8_t multitap_slot_ids[USB_GAMEPAD_COUNT] = {
+        PSX_ID_DISCONNECTED,
+        PSX_ID_DISCONNECTED,
+        PSX_ID_DISCONNECTED,
+        PSX_ID_DISCONNECTED,
+    };
+    uint8_t connected = 0U;
+    controller_t *primary = &physical_controllers[0];
 
-        memcpy(readMode, readMode_template, sizeof(readMode));
-        if (port->rumble_active) {
-            readMode[3] = 0xFF;
-            readMode[4] = 0xFF;
-        }
+    memcpy(readMode, readMode_template, sizeof(readMode));
+    if (primary->rumble_active) {
+        readMode[3] = 0xFF;
+        readMode[4] = 0xFF;
+    }
 
-        bool ok = send_string_retry(port, readMode, sizeof(readMode));
-        if (!ok && port->id != 0x0F) {
-            port->id = 0x0F;
-            port->buttons = 0xFFFF;
-            memset(port->axes, 0x80, sizeof(port->axes));
-            port->report_dirty = 1;
+    bool primary_ok = send_string_retry(primary, readMode, sizeof(readMode));
+    if (primary_ok && primary->id != PSX_ID_DISCONNECTED && primary->id != PSX_ID_MULTITAP) {
+        copy_controller_state(&controllers[connected], primary);
+        connected++;
+    } else {
+        clear_controller(primary);
+    }
+
+    for (uint8_t slot = 1U; slot < USB_GAMEPAD_COUNT; slot++) {
+        controller_t slot_state;
+        uint8_t slot_command[sizeof(multitapReadMode_template)];
+
+        init_controller_state(&slot_state, slot);
+        memcpy(slot_command, multitapReadMode_template, sizeof(slot_command));
+        slot_command[0] = slot + 1U;
+
+        bool slot_ok = send_string_no_setup_retry(&slot_state, slot_command, sizeof(slot_command));
+        if (slot_ok && slot_state.id != PSX_ID_DISCONNECTED && slot_state.id != PSX_ID_MULTITAP) {
+            copy_controller_state(&physical_controllers[slot], &slot_state);
+            if (connected < USB_GAMEPAD_COUNT) {
+                copy_controller_state(&controllers[connected], &physical_controllers[slot]);
+                connected++;
+            }
+            if (multitap_slot_ids[slot] != slot_state.id) {
+                multitap_slot_ids[slot] = slot_state.id;
+                setup_controller_at_address(&physical_controllers[slot], slot + 1U);
+            }
+        } else {
+            multitap_slot_ids[slot] = PSX_ID_DISCONNECTED;
+            clear_controller(&physical_controllers[slot]);
         }
     }
+
+    for (uint8_t i = connected; i < USB_GAMEPAD_COUNT; i++) {
+        clear_controller(&controllers[i]);
+    }
+
+    usb_gamepad_count_pending_set(connected);
 }
 
 void ACKPin_OnRisingEdge()
@@ -357,10 +463,70 @@ void ACKPin_OnRisingEdge()
     controllerAcked = true;
 }
 
+static void init_controller_state(controller_t *port, uint8_t index)
+{
+    port->id            = PSX_ID_DISCONNECTED;
+    port->index         = index;
+    port->buttons       = 0xFFFFU;
+    port->rumble_active = 0U;
+    port->report_dirty  = 1U;
+    memset(port->axes, 0x80, sizeof(port->axes));
+    memset(port->psx_buffer, 0xFF, sizeof(port->psx_buffer));
+}
+
+static void clear_controller(controller_t *port)
+{
+    bool changed = (port->id != PSX_ID_DISCONNECTED) || (port->buttons != 0xFFFFU);
+
+    for (uint8_t i = 0; i < sizeof(port->axes); i++) {
+        if (port->axes[i] != 0x80U) {
+            changed = true;
+        }
+    }
+
+    port->id = PSX_ID_DISCONNECTED;
+    port->buttons = 0xFFFFU;
+    memset(port->axes, 0x80, sizeof(port->axes));
+    memset(port->psx_buffer, 0xFF, sizeof(port->psx_buffer));
+    if (changed) {
+        port->report_dirty = 1U;
+    }
+}
+
+static void copy_controller_state(controller_t *dest, const controller_t *src)
+{
+    bool changed = (dest->id != src->id) ||
+                   (dest->buttons != src->buttons) ||
+                   (memcmp(dest->axes, src->axes, sizeof(dest->axes)) != 0);
+
+    dest->id = src->id;
+    dest->buttons = src->buttons;
+    memcpy(dest->axes, src->axes, sizeof(dest->axes));
+    memcpy(dest->psx_buffer, src->psx_buffer, sizeof(dest->psx_buffer));
+    if (changed) {
+        dest->report_dirty = 1U;
+    }
+}
+
 static void mark_all_gamepads_dirty(void)
 {
-    for (uint8_t i = 0; i < USB_GAMEPAD_COUNT; i++) {
+    for (uint8_t i = 0; i < usb_active_gamepad_count; i++) {
         usb_gamepad_dirty[i] = 1;
+    }
+}
+
+static void usb_gamepad_count_pending_set(uint8_t count)
+{
+    if (count > USB_GAMEPAD_COUNT) {
+        count = USB_GAMEPAD_COUNT;
+    }
+    usb_pending_gamepad_count = count;
+}
+
+static void usb_reenumerate_delay(void)
+{
+    for (uint16_t i = 0; i < USB_REENUMERATE_DELAY_MS; i++) {
+        _delay_ms(1);
     }
 }
 
@@ -388,7 +554,7 @@ static uint8_t psx_hat_get(uint16_t buttons)
 
 static uint16_t psx_hid_buttons_get(uint16_t buttons)
 {
-    static const uint16_t button_map[9] = {
+    static const uint16_t button_map[10] = {
         PSX_BTN_CROSS,
         PSX_BTN_CIRCLE,
         PSX_BTN_SQUARE,
@@ -398,14 +564,16 @@ static uint16_t psx_hid_buttons_get(uint16_t buttons)
         PSX_BTN_SELECT,
         PSX_BTN_START,
         PSX_BTN_L3,
+        PSX_BTN_R3,
     };
 
     uint16_t hid_buttons = 0U;
-    for (uint8_t i = 0; i < 9U; i++) {
+    for (uint8_t i = 0; i < 10U; i++) {
         if ((buttons & button_map[i]) == 0U) {
             hid_buttons |= (1U << i);
         }
     }
+    /* Button 11 is reserved for Home and is intentionally left released. */
     return hid_buttons;
 }
 
@@ -443,7 +611,7 @@ static void send_usb_gamepad_reports(void)
         return;
     }
 
-    for (uint8_t i = 0; i < USB_GAMEPAD_COUNT; i++) {
+    for (uint8_t i = 0; i < usb_active_gamepad_count; i++) {
         if (usb_gamepad_report_busy[i] == true) {
             continue;
         }

@@ -59,14 +59,14 @@
     0x81, 0x42,       /* Input (Data, Variable, Absolute, Null State) */ \
     0x05, 0x09,       /* Usage Page (Button) */ \
     0x19, 0x01,       /* Usage Minimum (Button 1) */ \
-    0x29, 0x09,       /* Usage Maximum (Button 9) */ \
+    0x29, 0x0B,       /* Usage Maximum (Button 11) */ \
     0x15, 0x00,       /* Logical Minimum (0) */ \
     0x25, 0x01,       /* Logical Maximum (1) */ \
     0x75, 0x01,       /* Report Size (1) */ \
-    0x95, 0x09,       /* Report Count (9) */ \
+    0x95, 0x0B,       /* Report Count (11) */ \
     0x81, 0x02,       /* Input (Data, Variable, Absolute) */ \
     0x75, 0x01,       /* Report Size (1) */ \
-    0x95, 0x03,       /* Report Count (3) */ \
+    0x95, 0x01,       /* Report Count (1) */ \
     0x81, 0x03,       /* Input (Constant, Variable, Absolute) */ \
     0xC0              /* End Collection */
 
@@ -106,8 +106,8 @@ static USB_APPLICATION_CONFIGURATION_t configurationDescriptor = {
                 .bLength = sizeof (USB_CONFIGURATION_DESCRIPTOR_t),
                 .bDescriptorType = (uint8_t)USB_DESCRIPTOR_TYPE_CONFIGURATION,
             },
-            .wTotalLength = sizeof (USB_APPLICATION_CONFIGURATION1_t),
-            .bNumInterfaces = USB_INTERFACE_NUM,
+            .wTotalLength = sizeof (USB_CONFIGURATION_DESCRIPTOR_t),
+            .bNumInterfaces = 0U,
             .bConfigurationValue = 1u,
             .iConfiguration = 0u,
             .bmAttributes = USB_CONFIG_ATTR_MUST_SET | USB_CONFIG_ATTR_SELF_POWERED,
@@ -353,6 +353,28 @@ USB_DESCRIPTOR_POINTERS_t descriptorPointers = {
         &stringDescriptors.manufacturer_header,
     },
 };
+
+static uint8_t gamepadEndpointCount = 0U;
+
+void USB_GamepadEndpointCountSet(uint8_t count)
+{
+    if (count > USB_INTERFACE_NUM) {
+        count = USB_INTERFACE_NUM;
+    }
+
+    gamepadEndpointCount = count;
+    configurationDescriptor.Config1.Configuration.bNumInterfaces = count;
+    configurationDescriptor.Config1.Configuration.wTotalLength =
+        sizeof(USB_CONFIGURATION_DESCRIPTOR_t) +
+        (count * (sizeof(USB_INTERFACE_DESCRIPTOR_t) +
+                  sizeof(USB_HID_DESCRIPTOR_t) +
+                  sizeof(USB_ENDPOINT_DESCRIPTOR_t)));
+}
+
+uint8_t USB_GamepadEndpointCountGet(void)
+{
+    return gamepadEndpointCount;
+}
 
 /**
  End of File
