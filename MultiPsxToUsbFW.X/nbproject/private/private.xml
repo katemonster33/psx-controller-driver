@@ -3,14 +3,17 @@
     <editor-bookmarks xmlns="http://www.netbeans.org/ns/editor-bookmarks/2" lastBookmarkId="0"/>
     <open-files xmlns="http://www.netbeans.org/ns/projectui-open-files/2">
         <group>
-            <file>file:/C:/Users/pn1711/source/repos/psx-controller-driver/MultiPsxToUsbFW.X/mcc_generated_files/usb/usb_hid/usb_hid_transfer.c</file>
-            <file>file:/C:/Users/pn1711/source/repos/psx-controller-driver/MultiPsxToUsbFW.X/mcc_generated_files/usb/usb_common/usb_protocol_headers.h</file>
-            <file>file:/C:/Users/pn1711/source/repos/psx-controller-driver/MultiPsxToUsbFW.X/mcc_generated_files/system/src/system.c</file>
-            <file>file:/C:/Users/pn1711/source/repos/psx-controller-driver/MultiPsxToUsbFW.X/main.c</file>
-            <file>file:/C:/Users/pn1711/source/repos/psx-controller-driver/MultiPsxToUsbFW.X/mcc_generated_files/usb/usb_device.c</file>
-            <file>file:/C:/Users/pn1711/source/repos/psx-controller-driver/MultiPsxToUsbFW.X/mcc_generated_files/usb/usb_descriptors.c</file>
-            <file>file:/C:/Users/pn1711/source/repos/psx-controller-driver/MultiPsxToUsbFW.X/mcc_generated_files/usb/usb_hid/usb_hid.c</file>
-            <file>file:/C:/Users/pn1711/source/repos/psx-controller-driver/MultiPsxToUsbFW.X/mcc_generated_files/system/utils/utils.h</file>
+            <file>file:/home/katie/psx-controller-driver/MultiPsxToUsbFW.X/mcc_generated_files/usb/usb_config.h</file>
+            <file>file:/home/katie/psx-controller-driver/MultiPsxToUsbFW.X/mcc_generated_files/spi/src/spi0.c</file>
+            <file>file:/home/katie/psx-controller-driver/MultiPsxToUsbFW.X/mcc_generated_files/peripheral/src/usart0.c</file>
+            <file>file:/home/katie/psx-controller-driver/MultiPsxToUsbFW.X/mcc_generated_files/system/src/system.c</file>
+            <file>file:/home/katie/psx-controller-driver/MultiPsxToUsbFW.X/mcc_generated_files/system/pins.h</file>
+            <file>file:/home/katie/psx-controller-driver/MultiPsxToUsbFW.X/mcc_generated_files/usb/usb_common/usb_core_transfer.c</file>
+            <file>file:/home/katie/psx-controller-driver/MultiPsxToUsbFW.X/mcc_generated_files/system/src/pins.c</file>
+            <file>file:/home/katie/psx-controller-driver/MultiPsxToUsbFW.X/mcc_generated_files/usb/usb_peripheral/usb_peripheral_read_write.c</file>
+            <file>file:/home/katie/psx-controller-driver/MultiPsxToUsbFW.X/main.c</file>
+            <file>file:/home/katie/psx-controller-driver/MultiPsxToUsbFW.X/mcc_generated_files/spi/spi0.h</file>
+            <file>file:/home/katie/psx-controller-driver/MultiPsxToUsbFW.X/mcc_generated_files/usb/src/usb0.c</file>
         </group>
     </open-files>
 </project-private>

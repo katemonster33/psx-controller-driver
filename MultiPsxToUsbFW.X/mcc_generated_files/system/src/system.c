@@ -42,6 +42,7 @@ void SYSTEM_Initialize(void)
     SPI0_Host_Initialize();
     USB0_Initialize();
     RTC_Initialize();
+    USART0_Initialize();
     USBDevice_Initialize();
     CPUINT_Initialize();
 }

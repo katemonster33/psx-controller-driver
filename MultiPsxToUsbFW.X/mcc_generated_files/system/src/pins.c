@@ -37,8 +37,8 @@
 static void (*IO_PD5_InterruptHandler)(void);
 static void (*IO_PD4_InterruptHandler)(void);
 static void (*IO_PD6_InterruptHandler)(void);
-static void (*RUMBLE_SS_InterruptHandler)(void);
 static void (*ACK_InterruptHandler)(void);
+static void (*DEBUG_TX_InterruptHandler)(void);
 static void (*ATT_InterruptHandler)(void);
 
 void PIN_MANAGER_Initialize()
@@ -51,7 +51,7 @@ void PIN_MANAGER_Initialize()
     PORTF.OUT = 0x0;
 
   /* DIR Registers Initialization */
-    PORTA.DIR = 0x0;
+    PORTA.DIR = 0x1;
     PORTC.DIR = 0x0;
     PORTD.DIR = 0xD0;
     PORTF.DIR = 0x0;
@@ -102,8 +102,8 @@ void PIN_MANAGER_Initialize()
     IO_PD5_SetInterruptHandler(IO_PD5_DefaultInterruptHandler);
     IO_PD4_SetInterruptHandler(IO_PD4_DefaultInterruptHandler);
     IO_PD6_SetInterruptHandler(IO_PD6_DefaultInterruptHandler);
-    RUMBLE_SS_SetInterruptHandler(RUMBLE_SS_DefaultInterruptHandler);
     ACK_SetInterruptHandler(ACK_DefaultInterruptHandler);
+    DEBUG_TX_SetInterruptHandler(DEBUG_TX_DefaultInterruptHandler);
     ATT_SetInterruptHandler(ATT_DefaultInterruptHandler);
 }
 
@@ -147,19 +147,6 @@ void IO_PD6_DefaultInterruptHandler(void)
     // or set custom function using IO_PD6_SetInterruptHandler()
 }
 /**
-  Allows selecting an interrupt handler for RUMBLE_SS at application runtime
-*/
-void RUMBLE_SS_SetInterruptHandler(void (* interruptHandler)(void)) 
-{
-    RUMBLE_SS_InterruptHandler = interruptHandler;
-}
-
-void RUMBLE_SS_DefaultInterruptHandler(void)
-{
-    // add your RUMBLE_SS interrupt custom code
-    // or set custom function using RUMBLE_SS_SetInterruptHandler()
-}
-/**
   Allows selecting an interrupt handler for ACK at application runtime
 */
 void ACK_SetInterruptHandler(void (* interruptHandler)(void)) 
@@ -171,6 +158,19 @@ void ACK_DefaultInterruptHandler(void)
 {
     // add your ACK interrupt custom code
     // or set custom function using ACK_SetInterruptHandler()
+}
+/**
+  Allows selecting an interrupt handler for DEBUG_TX at application runtime
+*/
+void DEBUG_TX_SetInterruptHandler(void (* interruptHandler)(void)) 
+{
+    DEBUG_TX_InterruptHandler = interruptHandler;
+}
+
+void DEBUG_TX_DefaultInterruptHandler(void)
+{
+    // add your DEBUG_TX interrupt custom code
+    // or set custom function using DEBUG_TX_SetInterruptHandler()
 }
 /**
   Allows selecting an interrupt handler for ATT at application runtime
@@ -190,7 +190,7 @@ ISR(PORTA_PORT_vect)
     // Call the interrupt handler for the callback registered at runtime
     if(VPORTA.INTFLAGS & PORT_INT0_bm)
     {
-       RUMBLE_SS_InterruptHandler(); 
+       DEBUG_TX_InterruptHandler(); 
     }
     /* Clear interrupt flags */
     VPORTA.INTFLAGS = 0xff;

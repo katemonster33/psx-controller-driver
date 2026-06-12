@@ -40,6 +40,7 @@
 #include <usb_descriptors.h>
 #include <util/delay.h>
 #include <string.h>
+#include <avr/interrupt.h>
 #include <avr/sleep.h>
 // Number of consecutive equal AC measurements before power is seen as stable
 #define AC_MEASUREMENT_STABLE_COUNT 5U
@@ -93,6 +94,7 @@ typedef char usb_gamepad_report_size_must_be_8_bytes[(sizeof(usb_gamepad_report_
 #define PSX_BTN_CROSS    (1U << 6)
 #define PSX_BTN_SQUARE   (1U << 7)
 
+#define nullptr 0
 
 static controller_t controllers[NUM_CONTROLLERS];
 static controller_t physical_controllers[USB_GAMEPAD_COUNT];
@@ -158,6 +160,9 @@ static void   gamepad_report_sent_callback(USB_PIPE_t pipe, USB_TRANSFER_STATUS_
 void USB_ConnectionHandler();
 void ACKPin_OnRisingEdge();
 
+// Volatile pointer keeps track of our current transmission string in memory
+static volatile const char* tx_buffer_ptr = nullptr;
+
 /* ------------------------------------------------------------------ */
 /*  Pin helpers                                                        */
 /* ------------------------------------------------------------------ */
@@ -187,6 +192,17 @@ static inline void attn_high(controller_t *port)
     //else                  P2_ATTN_PORT.OUTSET = P2_ATTN_bm;
 }
 
+// Non-blocking print function starts the interrupt chain
+void USART0_Print_Async(const char* str) {
+    // Wait if a previous transmission is still active
+    while (tx_buffer_ptr != nullptr);
+    
+    tx_buffer_ptr = str;
+    
+    // Enable the Data Register Empty Interrupt to trigger the ISR
+    USART0.CTRLA |= USART_DREIE_bm;
+}
+
 /*
     Main application
 */
@@ -214,9 +230,27 @@ int main(void)
         send_usb_gamepad_reports();
 
         _delay_ms(10);
+        
+        for(int i = 0; i < NUM_CONTROLLERS; i++) {
+            usb_gamepad_report_busy[i] = false;
+        }
+        
+        USART0_Print_Async("Interrupt Driven AVR16DU14 Message!\r\n");
     }
 }
 
+// Interrupt Service Routine for Data Register Empty
+ISR(USART0_DRE_vect) {
+    if (tx_buffer_ptr != nullptr && *tx_buffer_ptr != '\0') {
+        // Feed the next character into the transmit buffer
+        USART0.TXDATAL = *tx_buffer_ptr;
+        tx_buffer_ptr++;
+    } else {
+        // String completion reached: disable interrupt to clear execution flag
+        USART0.CTRLA &= ~USART_DREIE_bm;
+        tx_buffer_ptr = nullptr;
+    }
+}
 
 /**
  * Routine that checks the connectivity of the USB peripheral and start/stops the USB driver when connected/disconnected

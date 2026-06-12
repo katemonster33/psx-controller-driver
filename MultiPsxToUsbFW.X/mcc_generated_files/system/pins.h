@@ -95,25 +95,6 @@
 #define IO_PD6_EnableInterruptForLowLevelSensing() do { PORTD.PIN6CTRL = (PORTD.PIN6CTRL & ~PORT_ISC_gm) | 0x5 ; } while(0)
 #define PD6_SetInterruptHandler IO_PD6_SetInterruptHandler
 
-//get/set RUMBLE_SS aliases
-#define RUMBLE_SS_SetHigh() do { PORTA_OUTSET = 0x1; } while(0)
-#define RUMBLE_SS_SetLow() do { PORTA_OUTCLR = 0x1; } while(0)
-#define RUMBLE_SS_Toggle() do { PORTA_OUTTGL = 0x1; } while(0)
-#define RUMBLE_SS_GetValue() (VPORTA.IN & (0x1 << 0))
-#define RUMBLE_SS_SetDigitalInput() do { PORTA_DIRCLR = 0x1; } while(0)
-#define RUMBLE_SS_SetDigitalOutput() do { PORTA_DIRSET = 0x1; } while(0)
-#define RUMBLE_SS_SetPullUp() do { PORTA_PIN0CTRL  |= PORT_PULLUPEN_bm; } while(0)
-#define RUMBLE_SS_ResetPullUp() do { PORTA_PIN0CTRL  &= ~PORT_PULLUPEN_bm; } while(0)
-#define RUMBLE_SS_SetInverted() do { PORTA_PIN0CTRL  |= PORT_INVEN_bm; } while(0)
-#define RUMBLE_SS_ResetInverted() do { PORTA_PIN0CTRL  &= ~PORT_INVEN_bm; } while(0)
-#define RUMBLE_SS_DisableInterruptOnChange() do { PORTA.PIN0CTRL = (PORTA.PIN0CTRL & ~PORT_ISC_gm) | 0x0 ; } while(0)
-#define RUMBLE_SS_EnableInterruptForBothEdges() do { PORTA.PIN0CTRL = (PORTA.PIN0CTRL & ~PORT_ISC_gm) | 0x1 ; } while(0)
-#define RUMBLE_SS_EnableInterruptForRisingEdge() do { PORTA.PIN0CTRL = (PORTA.PIN0CTRL & ~PORT_ISC_gm) | 0x2 ; } while(0)
-#define RUMBLE_SS_EnableInterruptForFallingEdge() do { PORTA.PIN0CTRL = (PORTA.PIN0CTRL & ~PORT_ISC_gm) | 0x3 ; } while(0)
-#define RUMBLE_SS_DisableDigitalInputBuffer() do { PORTA.PIN0CTRL = (PORTA.PIN0CTRL & ~PORT_ISC_gm) | 0x4 ; } while(0)
-#define RUMBLE_SS_EnableInterruptForLowLevelSensing() do { PORTA.PIN0CTRL = (PORTA.PIN0CTRL & ~PORT_ISC_gm) | 0x5 ; } while(0)
-#define PA0_SetInterruptHandler RUMBLE_SS_SetInterruptHandler
-
 //get/set ACK aliases
 #define ACK_SetHigh() do { PORTC_OUTSET = 0x8; } while(0)
 #define ACK_SetLow() do { PORTC_OUTCLR = 0x8; } while(0)
@@ -132,6 +113,25 @@
 #define ACK_DisableDigitalInputBuffer() do { PORTC.PIN3CTRL = (PORTC.PIN3CTRL & ~PORT_ISC_gm) | 0x4 ; } while(0)
 #define ACK_EnableInterruptForLowLevelSensing() do { PORTC.PIN3CTRL = (PORTC.PIN3CTRL & ~PORT_ISC_gm) | 0x5 ; } while(0)
 #define PC3_SetInterruptHandler ACK_SetInterruptHandler
+
+//get/set DEBUG_TX aliases
+#define DEBUG_TX_SetHigh() do { PORTA_OUTSET = 0x1; } while(0)
+#define DEBUG_TX_SetLow() do { PORTA_OUTCLR = 0x1; } while(0)
+#define DEBUG_TX_Toggle() do { PORTA_OUTTGL = 0x1; } while(0)
+#define DEBUG_TX_GetValue() (VPORTA.IN & (0x1 << 0))
+#define DEBUG_TX_SetDigitalInput() do { PORTA_DIRCLR = 0x1; } while(0)
+#define DEBUG_TX_SetDigitalOutput() do { PORTA_DIRSET = 0x1; } while(0)
+#define DEBUG_TX_SetPullUp() do { PORTA_PIN0CTRL  |= PORT_PULLUPEN_bm; } while(0)
+#define DEBUG_TX_ResetPullUp() do { PORTA_PIN0CTRL  &= ~PORT_PULLUPEN_bm; } while(0)
+#define DEBUG_TX_SetInverted() do { PORTA_PIN0CTRL  |= PORT_INVEN_bm; } while(0)
+#define DEBUG_TX_ResetInverted() do { PORTA_PIN0CTRL  &= ~PORT_INVEN_bm; } while(0)
+#define DEBUG_TX_DisableInterruptOnChange() do { PORTA.PIN0CTRL = (PORTA.PIN0CTRL & ~PORT_ISC_gm) | 0x0 ; } while(0)
+#define DEBUG_TX_EnableInterruptForBothEdges() do { PORTA.PIN0CTRL = (PORTA.PIN0CTRL & ~PORT_ISC_gm) | 0x1 ; } while(0)
+#define DEBUG_TX_EnableInterruptForRisingEdge() do { PORTA.PIN0CTRL = (PORTA.PIN0CTRL & ~PORT_ISC_gm) | 0x2 ; } while(0)
+#define DEBUG_TX_EnableInterruptForFallingEdge() do { PORTA.PIN0CTRL = (PORTA.PIN0CTRL & ~PORT_ISC_gm) | 0x3 ; } while(0)
+#define DEBUG_TX_DisableDigitalInputBuffer() do { PORTA.PIN0CTRL = (PORTA.PIN0CTRL & ~PORT_ISC_gm) | 0x4 ; } while(0)
+#define DEBUG_TX_EnableInterruptForLowLevelSensing() do { PORTA.PIN0CTRL = (PORTA.PIN0CTRL & ~PORT_ISC_gm) | 0x5 ; } while(0)
+#define PA0_SetInterruptHandler DEBUG_TX_SetInterruptHandler
 
 //get/set ATT aliases
 #define ATT_SetHigh() do { PORTD_OUTSET = 0x80; } while(0)
@@ -225,27 +225,6 @@ void IO_PD6_SetInterruptHandler(void (* interruptHandler)(void)) ;
 
 /**
  * @ingroup  pinsdriver
- * @brief Default Interrupt Handler for RUMBLE_SS pin. 
- *        This is a predefined interrupt handler to be used together with the RUMBLE_SS_SetInterruptHandler() method.
- *        This handler is called every time the RUMBLE_SS ISR is executed. 
- * @pre PIN_MANAGER_Initialize() has been called at least once
- * @param none
- * @return none
- */
-void RUMBLE_SS_DefaultInterruptHandler(void);
-
-/**
- * @ingroup  pinsdriver
- * @brief Interrupt Handler Setter for RUMBLE_SS pin input-sense-config functionality.
- *        Allows selecting an interrupt handler for RUMBLE_SS at application runtime
- * @pre PIN_MANAGER_Initialize() has been called at least once
- * @param InterruptHandler function pointer.
- * @return none
- */
-void RUMBLE_SS_SetInterruptHandler(void (* interruptHandler)(void)) ; 
-
-/**
- * @ingroup  pinsdriver
  * @brief Default Interrupt Handler for ACK pin. 
  *        This is a predefined interrupt handler to be used together with the ACK_SetInterruptHandler() method.
  *        This handler is called every time the ACK ISR is executed. 
@@ -264,6 +243,27 @@ void ACK_DefaultInterruptHandler(void);
  * @return none
  */
 void ACK_SetInterruptHandler(void (* interruptHandler)(void)) ; 
+
+/**
+ * @ingroup  pinsdriver
+ * @brief Default Interrupt Handler for DEBUG_TX pin. 
+ *        This is a predefined interrupt handler to be used together with the DEBUG_TX_SetInterruptHandler() method.
+ *        This handler is called every time the DEBUG_TX ISR is executed. 
+ * @pre PIN_MANAGER_Initialize() has been called at least once
+ * @param none
+ * @return none
+ */
+void DEBUG_TX_DefaultInterruptHandler(void);
+
+/**
+ * @ingroup  pinsdriver
+ * @brief Interrupt Handler Setter for DEBUG_TX pin input-sense-config functionality.
+ *        Allows selecting an interrupt handler for DEBUG_TX at application runtime
+ * @pre PIN_MANAGER_Initialize() has been called at least once
+ * @param InterruptHandler function pointer.
+ * @return none
+ */
+void DEBUG_TX_SetInterruptHandler(void (* interruptHandler)(void)) ; 
 
 /**
  * @ingroup  pinsdriver

@@ -7,6 +7,9 @@
       <logicalFolder name="MCC Generated Files"
                      displayName="MCC Generated Files"
                      projectFiles="true">
+        <logicalFolder name="peripheral" displayName="peripheral" projectFiles="true">
+          <itemPath>mcc_generated_files/peripheral/usart0.h</itemPath>
+        </logicalFolder>
         <logicalFolder name="spi" displayName="spi" projectFiles="true">
           <itemPath>mcc_generated_files/spi/spi0.h</itemPath>
           <itemPath>mcc_generated_files/spi/spi_interface.h</itemPath>
@@ -87,6 +90,11 @@
       <logicalFolder name="MCC Generated Files"
                      displayName="MCC Generated Files"
                      projectFiles="true">
+        <logicalFolder name="peripheral" displayName="peripheral" projectFiles="true">
+          <logicalFolder name="src" displayName="src" projectFiles="true">
+            <itemPath>mcc_generated_files/peripheral/src/usart0.c</itemPath>
+          </logicalFolder>
+        </logicalFolder>
         <logicalFolder name="spi" displayName="spi" projectFiles="true">
           <logicalFolder name="src" displayName="src" projectFiles="true">
             <itemPath>mcc_generated_files/spi/src/spi0.c</itemPath>

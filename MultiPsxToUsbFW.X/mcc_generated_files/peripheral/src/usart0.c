@@ -1,16 +1,3 @@
-/**
- * System Driver Header File
- * 
- * @file system.h
- * 
- * @defgroup systemdriver System Driver
- * 
- * @brief This file contains the API prototype for the System Driver.
- *
- * @version Driver Version 1.0.3
- *
- * @version Package Version 4.3.1
-*/
 /*
 © [2026] Microchip Technology Inc. and its subsidiaries.
 
@@ -32,37 +19,34 @@
     THIS SOFTWARE.
 */
 
+#include <xc.h>
 
-#ifndef MCC_H
-#define	MCC_H
+// Set the USART0 module to the options selected in the user interface.
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-#include "../system/utils/compiler.h"
-#include "config_bits.h"
-#include "../system/pins.h"
-#include "../usb/usb0.h"
-#include "../timer/rtc.h"
-#include "../peripheral/usart0.h"
-#include "../usb/usb_device.h"
-#include "../system/interrupt.h"
-#include "../system/clock.h"
-#include "../system/syscfg.h"
-#include "../spi/spi0.h"
-/**
- * @ingroup systemdriver
- * @brief Initializes the System module. This routine is called only once during system initialization, before calling any other API.
- * @param None.
- * @return None.
-*/
-void SYSTEM_Initialize(void);
-
-#ifdef __cplusplus
+int8_t USART0_Initialize(void) {
+    // BAUD 9600; 
+    USART0.BAUD = 0x2580;
+    // RXCIE disabled; TXCIE disabled; DREIE disabled; RXSIE disabled; LBME disabled; ABEIE disabled; RS485 DISABLE; 
+    USART0.CTRLA = 0x0;
+    // RXEN disabled; TXEN enabled; SFDEN disabled; ODME disabled; RXMODE NORMAL; MPCM disabled; 
+    USART0.CTRLB = 0x40;
+    // CMODE ASYNCHRONOUS; PMODE DISABLED; SBMODE 1BIT; CHSIZE 8BIT; UDORD disabled; UCPHA enabled; 
+    USART0.CTRLC = 0x3;
+    // ABW WDW0; 
+    USART0.CTRLD = 0x0;
+    // DBGRUN disabled; 
+    USART0.DBGCTRL = 0x0;
+    // IREI disabled; 
+    USART0.EVCTRL = 0x0;
+    // RXPL 0x0; 
+    USART0.RXPLCTRL = 0x0;
+    // TXCIF disabled; RXSIF disabled; ISFIF disabled; BDF disabled; WFB disabled; 
+    USART0.STATUS = 0x20;
+    // DATA8 disabled; 
+    USART0.TXDATAH = 0x0;
+    // DATA 0x0; 
+    USART0.TXDATAL = 0x0;
+    // TXPL 0x0; 
+    USART0.TXPLCTRL = 0x0;
+    return 0;
 }
-#endif
-#endif	/* MCC_H */
-/**
- End of File
-*/
